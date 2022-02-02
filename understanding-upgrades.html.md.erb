@@ -1,0 +1,299 @@
+---
+title: About Tanzu Kubernetes Grid Integrated Edition Upgrades
+owner: TKGI
+---
+
+This topic provides conceptual information about <%= vars.product_short %> upgrades,
+including upgrading the <%= vars.k8s_runtime_abbr %> control plane and <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters.
+
+For step-by-step instructions on upgrading <%= vars.product_short %>
+and <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters, see:
+
+* [Upgrading <%= vars.product_short %> (Antrea and Flannel Networking)](upgrade.html)
+* [Upgrading <%= vars.product_short %> (NSX-T Networking)](upgrade-nsxt.html)
+* [Upgrading Clusters](upgrade-clusters.html)
+
+## <a id="overview"></a>Overview
+
+An <%= vars.product_short %> upgrade modifies the version of <%= vars.product_short %>,
+for example, from v1.11.x to v1.12.0 or from v1.12.0 to v1.12.1.
+
+By default, <%= vars.product_short %> is set to perform a full upgrade,
+which upgrades both the <%= vars.k8s_runtime_abbr %> control plane and all <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters.
+
+However, you can choose to upgrade <%= vars.product_short %> in two phases
+by upgrading the <%= vars.k8s_runtime_abbr %> control plane first and
+then upgrading your <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters later.
+
+You can use either the <%= vars.product_tile %> tile or the <%= vars.k8s_runtime_abbr %> CLI to perform <%= vars.k8s_runtime_abbr %> upgrades:  
+
+* To perform a full upgrade of the <%= vars.k8s_runtime_abbr %> control plane and
+<%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters, use the <%= vars.product_tile %> tile . 
+* To upgrade the <%= vars.k8s_runtime_abbr %> control plane only, use the <%= vars.product_tile %> tile. 
+* To upgrade <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters, use either the <%= vars.k8s_runtime_abbr %> CLI 
+or the <%= vars.product_tile %> tile. 
+
+<table>
+<col width="20%">
+<col width="20%">
+<col width="27%">
+<col width="27%">
+  <tr>
+    <th rowspan=2>Upgrade Method</th>
+    <th colspan=3 style="text-align:center">Supported Upgrade Types</th>
+  </tr>
+  <tr>
+    <th>Full <%= vars.k8s_runtime_abbr %> upgrade</th>
+    <th><%= vars.k8s_runtime_abbr %> control plane only</th>
+    <th>Kubernetes clusters only</th>
+  </tr>
+  <tr>
+    <td><%= vars.k8s_runtime_abbr %> Tile</td>
+    <td style="text-align:center">&#10004;</td>
+    <td style="text-align:center">&#10004;</td>
+    <td style="text-align:center">&#10004;</td>
+  </tr>
+  <tr>
+    <td><%= vars.k8s_runtime_abbr %> CLI</td>
+    <td style="text-align:center">&#10006;</td>
+    <td style="text-align:center">&#10006;</td>
+    <td style="text-align:center">&#10004;</td>
+  </tr>
+</table>
+
+Typically, if you choose to upgrade <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters only,
+you will upgrade them through the <%= vars.k8s_runtime_abbr %> CLI.
+
+## <a id="decide"></a> Deciding Between Full and Two-Phase Upgrade
+
+When deciding whether to perform the default full upgrade or
+to upgrade the <%= vars.k8s_runtime_abbr %> control plane and <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters separately,
+consider your organization needs.
+
+For example, if your organization runs <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters
+in both development and production environments and you want to upgrade
+only one environment first, you can achieve your goal by
+upgrading the <%= vars.k8s_runtime_abbr %> control plane and <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes separately
+instead of performing a full upgrade.
+
+Examples of other advantages of
+upgrading <%= vars.product_short %> in two phases include:
+
+* Faster <%= vars.product_tile %> tile upgrades.
+If you have a large number of clusters in your <%= vars.product_short %> deployment,
+performing a full upgrade can significantly increase the amount of time required to
+upgrade the <%= vars.product_tile %> tile.
+
+* More granular control over cluster upgrades.
+In addition to enabling you to upgrade subsets of clusters,
+the <%= vars.k8s_runtime_abbr %> CLI supports upgrading each cluster individually.
+
+* Not a monolithic upgrade.
+This helps isolate the root cause of an error when troubleshooting upgrades.
+For example, when a cluster-related upgrade error occurs during a full upgrade,
+the entire <%= vars.product_tile %> tile upgrade may fail.
+
+<%# Note: The formatting on this page breaks when notes are configured the normal way.%>
+<p class="note warning">
+<strong>Warning:</strong> If you disable the default full upgrade
+and upgrade only the <%= vars.k8s_runtime_abbr %> control plane,
+you must upgrade all your <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters before the next <%= vars.product_tile %> tile
+upgrade. Disabling the default full upgrade
+and upgrading only the <%= vars.k8s_runtime_abbr %> control plane cause the <%= vars.k8s_runtime_abbr %> version
+tagged in your Kubernetes clusters to fall behind the <%= vars.product_tile %> tile version.
+If your <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters fall more than one version behind the tile,
+<%= vars.product_short %> cannot upgrade the clusters.
+</p>
+<%# Note: The formatting on this page breaks when notes are configured the normal way.%>
+
+## <a id="what-happens"></a> What Happens During Full <%= vars.k8s_runtime_abbr %> and <%= vars.k8s_runtime_abbr %> Control Plane Upgrades
+
+During a <%= vars.product_short %> control plane upgrade to v1.12, the <%= vars.product_tile %> tile does the following:
+
+1. **Recreates the Control Plane VMs** which host the TKGI API and UAA servers.
+  * If the <%= vars.product_short %> installation is not scaled for high availability (beta), this control plane recreation causes temporary outages as described in [Non-HA Control Plane Outages](#outages), below.
+
+1. **(Optional) Upgrades Clusters**
+  * Upgrading <%= vars.product_short %> only upgrades its Kubernetes clusters if the **Upgrade all clusters errand** checkbox is enabled in the **Errands** pane.
+  * The cluster upgrade process recreates all clusters, which may cause cluster outages.  
+  For more information, see the [What Happens During Cluster Upgrades](./upgrade-clusters.html#what) section of the _Upgrading Clusters_ topic.
+
+You can perform full <%= vars.k8s_runtime_abbr %> upgrades and <%= vars.k8s_runtime_abbr %> control plane upgrades only
+through the <%= vars.product_tile %> tile.
+
+After you add a new <%= vars.product_tile %> tile version to your staging area
+on the Ops Manager Installation Dashboard,
+Ops Manager automatically migrates your configuration settings into the new tile version.
+
+For more information, see:
+
+* [Full <%= vars.k8s_runtime_abbr %> Upgrades](#full-upgrades)
+* [<%= vars.k8s_runtime_abbr %> Control Plane Upgrades](#control-plane-upgrades)
+
+### <a name="full-upgrades"></a>Full <%= vars.k8s_runtime_abbr %> Upgrades
+
+During a **full <%= vars.k8s_runtime_abbr %> upgrade**,
+the <%= vars.product_tile %> tile does the following:
+
+1. Upgrades the <%= vars.k8s_runtime_abbr %> control plane, which includes the
+<%= vars.control_plane %> and UAA servers and the <%= vars.k8s_runtime_abbr %>
+database.
+This control plane upgrade causes temporary outages as described in
+[Control Plane Outages](#outages) below.
+
+1. Upgrades <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters.
+  * Upgrading <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters is controlled by the **Upgrade all clusters errand** in the <%= vars.product_tile %> tile.
+  * The cluster upgrade process recreates all clusters, which may cause cluster outages.
+  For more information, see [What Happens During Cluster Upgrades](#cluster-upgrades) below.
+
+### <a name="control-plane-upgrades"></a><%= vars.k8s_runtime_abbr %> Control Plane Upgrades
+
+When upgrading the **<%= vars.k8s_runtime_abbr %> control plane only**,
+the <%= vars.product_tile %> tile follows the process described in
+[Full <%= vars.k8s_runtime_abbr %> Upgrades](#full-upgrades) above, step 1.
+It does not upgrade <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters, step 2.
+
+### <a name="outages"></a> Control Plane Outages
+
+When the <%= vars.product_short %> control plane is not scaled for high availability (beta), upgrading it temporarily interrupts the following:
+
+  * Logging in to the <%= vars.k8s_runtime_abbr %> CLI and using all `tkgi` commands
+  * Using the <%= vars.control_plane %> to retrieve information about clusters
+  * Using the <%= vars.control_plane %> to create and delete clusters
+  * Using the <%= vars.control_plane %> to resize clusters
+
+These outages do not affect the Kubernetes clusters themselves.
+During a <%= vars.k8s_runtime_abbr %> control plane upgrade, you can still interact with clusters and their workloads using the Kubernetes Command Line Interface, `kubectl`.
+
+For more information about the <%= vars.k8s_runtime_abbr %> control plane and high availability (beta), see [<%= vars.k8s_runtime_abbr %> Control Plane Overview](control-plane.html#control-plane) in _<%= vars.product_short %> Architecture_.
+
+### <a name="canary"></a>Canary Instances
+
+The <%= vars.product_tile %> tile is a BOSH deployment.
+
+BOSH-deployed products can set a number of canary instances to upgrade first, before the rest of the deployment VMs.
+BOSH continues the upgrade only if the canary instance upgrade succeeds.
+If the canary instance encounters an error, the upgrade stops running and other VMs are not affected.
+
+The <%= vars.product_tile %> tile uses one canary instance when deploying or upgrading <%= vars.product_short %>.
+
+## <a id="cluster-upgrades"></a>What Happens During Cluster Upgrades
+
+Upgrading <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters
+updates their Kubernetes version to the version
+included with the <%= vars.product_tile %> tile.
+It also updates the <%= vars.k8s_runtime_abbr %> version tagged in your clusters
+to the <%= vars.product_tile %> tile version.
+
+You can upgrade <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters either through the <%= vars.product_tile %> tile
+or the <%= vars.k8s_runtime_abbr %> CLI. See the table below.
+
+<table>
+<col width="50%">
+<col width="50%">
+  <tr>
+    <th>This method</th>
+    <th>Upgrades</th>
+  </tr>
+  <tr>
+    <td>The <strong>Upgrade all clusters errand</strong> in<br>
+    the <strong><%= vars.product_tile %></strong> tile > <strong>Errands</strong></td>
+    <td>All clusters. Clusters are upgraded serially.</td>
+  </tr>
+  <tr>
+    <td><code>tkgi upgrade-cluster</code></td>
+    <td>One cluster.</td>
+  </tr>
+  <tr>
+    <td><code>tkgi upgrade-clusters</code></td>
+    <td>Multiple clusters. Clusters are upgraded serially or in parallel.</td>
+  </tr>
+</table>
+
+During an upgrade of <%= vars.k8s_runtime_abbr %>-provisioned clusters,
+<%= vars.product_short %> recreates your clusters.
+This includes the following stages for each cluster you upgrade:
+
+1. Control Plane nodes are recreated.
+1. Worker nodes are recreated.
+
+Depending on your cluster configuration,
+these recreations may cause [Control Plane Nodes Outage](#master) or [Worker Nodes Outage](#worker)
+as described below.
+
+###<a name="master"></a>Control Plane Nodes Outage
+
+When <%= vars.product_short %> upgrades a single-control plane node cluster,
+you cannot interact with your cluster, use `kubectl`, or push new workloads.
+
+To avoid this loss of functionality,
+<%= vars.recommended_by %> recommends using multi-control plane node clusters.
+
+###<a name="worker"></a>Worker Nodes Outage
+
+When <%= vars.product_short %> upgrades a worker node,
+the node stops running containers.
+If your workloads run on a single node, they will experience downtime.
+
+To avoid downtime for stateless workloads,
+<%= vars.recommended_by %> recommends using at least one worker node
+per availability zone (AZ).
+For stateful workloads, <%= vars.recommended_by %> recommends
+using a minimum of two worker nodes per AZ.
+
+<%# Note: The formatting on this page breaks when notes are configured the normal way.%>
+<p class="note">
+<strong>Note:</strong> When the <strong>Upgrade all clusters errand</strong>
+is enabled in the <%= vars.product_tile %> tile, updating the tile with
+a new Linux or Windows stemcell rolls every Linux or Windows VM in each Kubernetes cluster.
+This automatic rolling ensures that all your VMs are patched.
+To avoid workload downtime, use the resource configuration recommended
+in <a href="#master">Control Plane Nodes Outage</a>
+and <a href="#worker">Worker Nodes Outage</a> above and
+in <a href="./maintain-uptime.html">Maintaining Workload Uptime</a>.
+</p>
+<%# Note: The formatting on this page breaks when notes are configured the normal way.%>
+
+
+##<a id="cni"></a> About Upgrading from the Flannel CNI to the Antrea CNI
+
+In <%= vars.product_short %> v1.9 and earlier the <%= vars.product_tile %> tile provided Flannel and vSphere with NSX-T 
+as the only supported Container Network Interface (CNI) options for <%= vars.k8s_runtime_abbr %>-provisioned clusters. 
+
+Current versions of <%= vars.product_short %> support Antrea, Flannel, and NSX-T CNIs.
+The Antrea CNI provides Kubernetes Network Policy support for non-NSX-T environments. 
+For more information about Antrea, see [Antrea](https://antrea.io/) in the Antrea documentation.  
+
+Antrea CNI-configured clusters are supported on AWS, Azure, and vSphere without NSX-T environments.
+
+<p class="note">
+<strong>Note:</strong> Support for the Flannel Container Networking Interface (CNI) is deprecated.
+<%= vars.recommended_by %> recommends that you upgrade your Flannel CNI-configured clusters to the Antrea CNI.
+</p>
+
+###<a id="upgrade-the-cni"></a> Upgrade from the Flannel CNI to Antrea
+
+You can configure <%= vars.k8s_runtime_abbr %> to create new clusters networked with the Antrea CNI:
+
+* You can only configure Antrea CNI during a <%= vars.k8s_runtime_abbr %> v1.11 or later upgrade.
+* You cannot change your CNI from Antrea back to Flannel after upgrading to <%= vars.k8s_runtime_abbr %> v1.11 or later.
+
+<br>
+If you initially configured <%= vars.k8s_runtime_abbr %> to use Flannel but switch to the Antrea CNI during your <%= vars.k8s_runtime_abbr %> upgrade:
+
+* Existing Flannel-configured clusters remain networked using Flannel.
+* New clusters created after the upgrade are created using Antrea as their CNI.
+
+<p class="note">
+<strong>Note:</strong> Your existing Flannel clusters will not be migrated to Antrea 
+if you switch to Antrea.
+</p>
+
+<br>
+For information about selecting and configuring a CNI for <%= vars.k8s_runtime_abbr %>, see the _Networking_ section of the installation documentation for your environment:
+
+* [Installing <%= vars.product_full %> on AWS](installing-aws.html#networking)
+* [Installing <%= vars.product_full %> on Azure](installing-azure.html#networking)
+* [Installing <%= vars.product_full %> on vSphere](installing-vsphere.html#networking)
+
+<%# Note: The formatting on this page breaks when notes are configured the normal way.%>

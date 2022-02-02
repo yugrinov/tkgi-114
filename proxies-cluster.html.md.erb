@@ -1,0 +1,175 @@
+---
+title: Configure Cluster Proxies
+owner: TKGI
+topic: proxies-cluster
+---
+
+This topic describes how customize HTTP/HTTPS proxies for individual 
+<%= vars.product_short %> (<%= vars.k8s_runtime_abbr %>) clusters.
+
+##<a id='overview'></a>Overview
+
+<%= vars.k8s_runtime_abbr %> applies your HTTP/HTTPS cluster proxies to traffic from the cluster's Kubernetes 
+and Docker processes, such as the Kubernetes API server, Kube Controller, Kubelet, and Docker daemon.
+
+To create or change a cluster's proxy configuration, see:  
+
+* [Create a Cluster with a Custom Proxy Configuration](#create)  
+* [Change a Cluster's Proxy Configuration](#change)  
+
+<br>
+To view a cluster's proxy configuration, see:  
+
+* [View a Cluster's Proxy Configuration](#list)  
+
+<br>
+To configure global HTTP/HTTPS proxies for <%= vars.k8s_runtime_abbr %> on vSphere or AWS, see:
+
+- **vSphere**: [Using Proxies with Tanzu Kubernetes Grid Integrated Edition on NSX-T](proxies.html), or
+- **AWS**: [Using Proxies with Tanzu Kubernetes Grid Integrated Edition on AWS](proxies-aws.html)
+
+These two topics also cover how the proxies work, and how they can be useful.
+
+## <a id='create'></a>Create a Cluster with a Custom Proxy Configuration
+
+To create a cluster with a custom proxy configuration:
+
+1. Define the proxy settings in a configuration file, as described in [Proxy Configuration Settings](#settings), below.
+
+1. Pass the file location to the `--config-file` flag of `tkgi create-cluster`.
+See [Creating Clusters](create-cluster.html) for more information.
+
+
+## <a id='change'></a>Change a Cluster's Proxy Configuration
+
+To change a cluster's proxy configuration:
+
+1. Define the proxy settings in a configuration file, as described in [Proxy Configuration Settings](#settings), below.
+  - To retain a previous setting, do not include it in the configuration file.
+  - To unset a previous setting, set it to `{}` (for an object) or `""` (for a string) in the configuration file.
+
+1. Run the following command to update the cluster with the configuration file:
+
+    ```
+    tkgi update-cluster CLUSTER-NAME --config-file CONFIG-FILE-NAME
+    ```
+
+    Where: 
+    * `CLUSTER-NAME` is the name of the existing Kubernetes cluster 
+    * `CONFIG-FILE-NAME` is the path and filename of the configuration file you want to apply to the cluster.
+
+    <p class="note warning"><strong>Warning</strong>: Do not use <code>tkgi update-cluster</code> 
+    on clusters configured with a network profile CNI configuration.
+    For more information, see <a href="https://docs.pivotal.io/tkgi/1-10/release-notes.html#1-10-0-do-notuse-resize-cluster">TKGI CLI Resize and Update Cluster Commands Remove Network Profile CNI Configuration from a Cluster</a> 
+    in the TKGI v1.10 <em>Release Notes</em>.
+    </p>
+
+<p class="note"><strong>Note</strong>: When you when you use <code>tkg update-cluster</code> to update an existing cluster, the attached network-profile must consist of only updatable settings.</p>
+
+##<a id='settings'></a>Proxy Configuration Settings
+
+To configure HTTP/HTTPS settings for a <%= vars.k8s_runtime_abbr %> cluster, you first define them
+in a cluster configuration JSON file on your local filesystem.
+
+Proxy settings that you can configure are:
+
+<table>
+  <tr>
+    <th width=25%>Setting</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>http_proxy</code></td>
+    <td>HTTP proxy URL and credentials. This overrides the global <strong>HTTP Proxy</strong> settings 
+      in the <%= vars.k8s_runtime_abbr %> tile > <strong>Networking</strong> pane.</td>
+  </tr>
+  <tr>
+    <td><code>https_proxy</code></td>
+    <td>HTTPS proxy URL and credentials. This overrides the global <strong>HTTP Proxy</strong> settings 
+      in the <%= vars.k8s_runtime_abbr %> tile.</td>
+  </tr>
+  <tr>
+    <td><code>no_proxy</code></td>
+    <td>Comma-separated list of IP addresses that bypass the proxy for internal communication. 
+      This interacts with the tile's global <strong>No Proxy</strong> setting based on the 
+      <code>global_no_proxy_merge</code> setting, below.</td>
+  </tr>
+  <tr>
+    <td><code>global_no_proxy_merge</code></td>
+    <td>Boolean value. 
+      The default <code>false</code> setting merges the <code>no_proxy</code> setting above with the global 
+      <strong>No Proxy</strong> list set in the tile. Setting this to <code>true</code> overrides the global 
+      <strong>No Proxy</strong> list.</td>
+  </tr>
+</table>
+
+<br>
+For example, the following configuration file overrides the `http_proxy` and `https_proxy` settings in the tile,
+and merges the `no_proxy` list here with the `no_proxy` list set in the tile:
+
+```
+{
+  "http_proxy":{
+     "url":"http://example.com",
+     "username":"admin",
+     "password":"admin"
+  },
+  "https_proxy":{
+     "url":"http://example.com",
+     "username":"admin",
+     "password":"admin"
+  },
+  "no_proxy":"127.0.0.1,localhost,*.example.com,198.51.100.0/24",
+  "global_no_proxy_merge":true
+}
+```
+
+<p class="note"><strong>Note:</strong> Cluster configuration files can also include settings for non-proxy features, such as enabling cluster access by group Managed Service Accounts (gMSAs).
+You combine all such settings into a single, general-purpose configuration file to pass to the <code>--config-file</code> flag.</p>
+
+
+## <a id='list'></a>View a Cluster's Proxy Configuration
+
+You can see a cluster's current proxy configuration by viewing its BOSH manifest:
+
+1. To identify the names of your cluster deployments:
+
+    ```
+    bosh deployments
+    ```
+    <p class="note"><strong>Note:</strong> Cluster deployment names start with <code>service-instance_</code>.</p>
+1. To download the manifest for any cluster you want to view:
+
+    ```
+    bosh -d DEPLOYMENT-NAME manifest > /tmp/YOUR-DEPLOYMENT-MANIFEST.yml
+    ```
+    
+    Where:
+    * `DEPLOYMENT-NAME` is the name of your Kubernetes cluster deployment.
+    * `YOUR-DEPLOYMENT-MANIFEST` is the name of your Kubernetes cluster deployment manifest.
+
+1. Search the manifest for `proxy` to see its proxy settings under `jobs.properties.env`, for example:
+
+    ```
+    jobs:
+      - name: docker
+        release: kubo
+        properties:
+          bridge: cni0
+          default_ulimits:
+          - nofile=1048576
+          env:
+            http_proxy: ""
+            https_proxy: ""
+            no_proxy: .internal,.svc,.svc.cluster.local,.svc.cluster,api.pks.local,10.100.200.0/24,10.200.0.0/16,88.0.0.0/24,192.168.111.0/24,192.168.139.1,192.168.160.0/24,nsxmanager.pks.vmware.local
+          flannel: false
+          ip_masq: false
+          iptables: false
+          live_restore: true
+          log_level: error
+          log_options:
+          - max-size=128m
+          - max-file=2
+          storage_driver: overlay2
+          store_dir: /var/vcap/store
+    ```

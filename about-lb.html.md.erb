@@ -1,0 +1,107 @@
+---
+title: Load Balancers in Tanzu Kubernetes Grid Integrated Edition
+owner: TKGI
+---
+
+This topic describes the types of load balancers that are used in <%= vars.product_full %> deployments. Load balancers differ by the type of deployment.
+
+## <a id='without-nsx-t'></a>Load Balancers in <%= vars.product_short %> Deployments without NSX&#8209;T
+
+For <%= vars.product_short %> deployments on GCP, AWS, or vSphere without NSX-T, you can configure load balancers for the following:
+
+* **<%= vars.control_plane %>**: Configuring this load balancer enables you to run <%= vars.k8s_runtime_abbr %> Command Line Interface (<%= vars.k8s_runtime_abbr %> CLI) commands from your local workstation.
+* **Kubernetes Clusters**: Configuring a load balancer for each new cluster enables you to run Kubernetes CLI (kubectl) commands on the cluster.
+* **Workloads**: Configuring a load balancer for your application workloads enables external access to the services that run on your cluster. 
+
+The following diagram, applicable to GCP, AWS, and vSphere without NSX-T, shows where each of the above load balancers can be used 
+within your <%= vars.product_short %> deployment. 
+<%= image_tag("lb-diagram.png", :alt => "TKGI diagram including all load balancer options for TKGI deployments without NSX-T") %>
+<%#= Image source: https://docs.google.com/drawings/d/17Zzznn0J8j3sEICByPnAF1mSKg0pisqtrZNWi8KbOh8/edit %>
+
+If you use either vSphere without NSX-T or GCP, you are expected to create your own load balancers within your cloud provider console. 
+If your cloud provider does not offer load balancing, you can use any external TCP or HTTPS load balancer of your choice.
+
+### <a id='tkgi-api'></a>About the <%= vars.control_plane %> Load Balancer
+
+The <%= vars.control_plane %> load balancer enables you to access the <%= vars.control_plane %> from outside the network on <%= vars.product_short %> deployments on GCP, AWS, and on vSphere without NSX-T.
+For example, configuring a load balancer for the <%= vars.control_plane %> enables you to run <%= vars.k8s_runtime_abbr %> CLI commands from your local workstation.
+
+For information about configuring the <%= vars.control_plane %> load balancer on vSphere without NSX-T, see [Configuring <%= vars.control_plane %> Load Balancer](./vsphere-configure-api.html).
+
+### <a id='cluster'></a>About Kubernetes Cluster Load Balancers
+
+When you create an <%= vars.product_short %> cluster on GCP, AWS, and on vSphere without NSX-T, 
+you must configure external access to the cluster by creating an external TCP or HTTPS load balancer. 
+The load balancer enables the Kubernetes CLI to communicate with the cluster.
+
+If you create a cluster in a non-production environment, you can choose not to use a load balancer.
+To enable kubectl to access the cluster without a load balancer, you can do one of the following:
+
+* Create a DNS entry that points to the cluster's control plane VM. For example: <pre>my-cluster.example.com    A    10.0.0.5</pre>
+* On the workstation where you run kubectl commands, add the control plane IP address of your cluster and `kubo.internal` to the `/etc/hosts` file. For example: <pre>10.0.0.5 kubo.internal</pre>
+
+For more information about configuring a cluster load balancer, see the following:
+
+* [Creating and Configuring a GCP Load Balancer for <%= vars.product_short %> Clusters](gcp-cluster-load-balancer.html)
+* [Creating and Configuring an AWS Load Balancer for <%= vars.product_short %> Clusters](aws-cluster-load-balancer.html)
+* [Creating and Configuring an Azure Load Balancer for <%= vars.product_short %> Clusters](azure-cluster-load-balancer.html)
+
+### <a id='workload'></a>About Workload Load Balancers
+
+To enable external access to your <%= vars.product_short %> app on GCP, AWS, and on vSphere without NSX-T, you can either create a load balancer or expose a static port on your workload.
+
+For information about configuring a load balancer for your app workload, see [Deploying and Exposing Basic Linux Workloads](deploy-workloads.html).
+
+If you use AWS, you must configure routing in the AWS console before you can create a load balancer for your workload.
+You must create a public subnet in each availability zone (AZ) where you are deploying the workload and tag the public subnet with your cluster's unique identifier.
+
+See the [AWS Prerequisites](deploy-workloads.html#aws) section of _Deploying and Exposing Basic Linux Workloads_ before you create a workload load balancer.
+
+#### <a id='with-ingress'></a>Deploy Your Workload Load Balancer with an Ingress Controller
+A Kubernetes ingress controller sits behind a load balancer, routing HTTP and HTTPS requests from outside the cluster to services within the cluster. 
+Kubernetes ingress resources can be configured to load balance traffic, provide externally reachable URLs to services, and manage other aspects of network traffic.  
+
+If you add an ingress controller to your <%= vars.product_short %> deployment, traffic routing is controlled by the ingress resource rules you define. 
+<%= vars.recommended_by %> recommends configuring <%= vars.product_short %> deployments with both a workload load balancer and an ingress controller.  
+
+The following diagram shows how the ingress routing can be used 
+within your <%= vars.product_short %> deployment. 
+<%= image_tag("ingress-routing.png", :alt => "TKGI diagram that shows ingress routing for both Istio and NSX-T") %>
+<%#= Image source: https://docs.google.com/drawings/d/1IB2juuTQlwJ4QpRaMmjFvGAC3cS7irFy3OII-pb6GGE/edit %>
+
+The load balancer on <%= vars.product_short %> on vSphere with NSX-T is automatically provisioned with Kubernetes ingress resources 
+without the need to deploy and configure an additional ingress controller.  
+
+For information about deploying a load balancer configured with ingress routing on GCP, AWS, Azure, and vSphere without NSX-T, see [Configuring Ingress Routing](configure-ingress.html). 
+For information about ingress routing on vSphere with NSX-T, see [Configuring Ingress Resources and Load Balancer Services](nsxt-ingress-srvc-lb.html).   
+
+## <a id='with-nsx-t'></a>Load Balancers in <%= vars.product_short %> Deployments on vSphere with NSX&#8209;T
+
+<%= vars.product_short %> deployments on vSphere with NSX-T do not require a load balancer configured to access the <%= vars.control_plane %> in singleton mode.
+They require only a DNAT rule configured so that the <%= vars.control_plane %> host is accessible.
+For more information, see [Share the <%= vars.product_short %> Endpoint](installing-nsx-t.html#retrieve-endpoint) in _Installing <%= vars.product_short %> on vSphere with NSX-T Integration_.
+
+<%= vars.product_short %> deployments on vSphere with NSX-T do require a load balancer configured to access the <%= vars.control_plane %> in high-availability mode. To configue an NSX-T load balancer for <%= vars.control_plane %> traffic, see [Provisioning an NSX-T Load Balancer for the TKGI API Server](nsxt-lb-tkgi-api.html).
+
+At runtime, NSX-T handles load balancer creation, configuration, and deletion automatically as part of the Kubernetes cluster create, update, and delete process.
+When a new Kubernetes cluster is created, NSX-T creates and configures a dedicated load balancer tied to it. The load balancer is a shared resource designed to provide efficient traffic distribution to control plane nodes as well as services deployed on worker nodes.
+Each application service is mapped to a virtual server instance, carved out from the same load balancer.
+For more information, see [Logical Load Balancer](https://docs.vmware.com/en/VMware-NSX-T/2.1/com.vmware.nsxt.admin.doc/GUID-46567C8D-A5C5-4793-8CDF-858E58FDE3C4.html) in the NSX-T documentation.
+
+Virtual server instances are created on the load balancer to provide access to the following:
+
+* **Kubernetes API and UI services on a Kubernetes cluster**. This enables requests to be load balanced across multiple control plane nodes.
+* **Ingress controller**. This enables the virtual server instance to dispatch HTTP and HTTPS requests to services associated with Ingress rules.
+* `type:loadbalancer` **services**. This enables the server to handle TCP connections or UDP flows toward exposed services.
+
+Load balancers are deployed in high-availability mode so that they are resilient to potential failures and able to recover quickly from critical conditions.
+
+<p class="note"><strong>Note</strong>: The <code>NodePort</code> Service type is not supported for <%= vars.product_short %> deployments on vSphere with NSX-T. Only <code>type:LoadBalancer</code>Services and Services associated with Ingress rules are supported on vSphere with NSX-T.</p>
+
+### <a id='resize-lb'></a> Resizing Load Balancers
+
+When a new Kubernetes cluster is provisioned using the <%= vars.control_plane %>, NSX-T creates a dedicated load balancer for that new cluster. By default, the size of the load balancer is set to Small.
+
+With network profiles, you can change the size of the load balancer deployed by NSX-T at the time of cluster creation. For information about network profiles, see [Using Network Profiles (NSX-T Only)](network-profiles.html).
+
+For more information about the types of load balancers NSX-T provisions and their capacities, see [Scaling Load Balancer Resources](https://docs.vmware.com/en/VMware-NSX-T-Data-Center/2.3/com.vmware.nsxt.admin.doc/GUID-19B12230-8BF4-4AF7-9EB7-3701B0A0A439.html) in the NSX-T documentation.

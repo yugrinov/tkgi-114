@@ -1,0 +1,276 @@
+---
+title: Upgrading Clusters
+owner: TKGI
+---
+
+This topic describes how to upgrade Kubernetes clusters
+provisioned by <%= vars.product_full %> (<%= vars.product_short %>)
+through the <%= vars.product_short %> Command Line Interface (<%= vars.k8s_runtime_abbr %> CLI).
+
+For information about how to upgrade <%= vars.k8s_runtime_abbr %>-provisioned clusters
+through the <%= vars.product_tile %> tile, 
+see _Verify Errand Configuration_ in one of the following topics:
+
+* [Upgrading <%= vars.product_short %> (Antrea and Flannel Networking)](upgrade.html)
+* [Upgrading <%= vars.product_short %> (NSX-T Networking)](upgrade-nsxt.html)
+
+For conceptual information about <%= vars.product_short %> upgrades,
+see [About <%= vars.product_short %> Upgrades](understanding-upgrades.html).
+
+## <a id="overview"></a>Overview
+
+Upgrading a <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes cluster updates
+the <%= vars.product_short %> version and the Kubernetes version
+of the cluster.  
+
+
+<p class="note"><strong>Note</strong>: When upgrading <%= vars.k8s_runtime_abbr %> to mitigate the Apache Log4j vulnerability
+you must also upgrade all <%= vars.k8s_runtime_abbr %> clusters.
+</p>  
+
+<%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters upgrade when:
+
+* You upgrade <%= vars.product_short %>
+with the **Upgrade all clusters errand** enabled in the **<%= vars.product_tile %>** tile > **Errands**.
+* You run `tkgi upgrade-cluster` or `tkgi upgrade-clusters`
+as described in [Upgrade Clusters](#upgrade-clusters) below.
+
+For example, running `tkgi upgrade-cluster`
+upgrades the cluster you specify to your current version of <%= vars.product_short %>
+and to the version of Kubernetes
+that is included with your current version of <%= vars.product_short %>.
+
+<p class="note warning"><strong>WARNING</strong>: Do not change the number of control plane/etcd nodes 
+for any plan that was used to create currently-running clusters. 
+<%= vars.product_short %> does not support changing the number of control plane/etcd nodes for plans 
+with existing clusters.
+</p>
+
+##<a id='prerequisites'></a>Prerequisites
+
+Before upgrading <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters:
+
+1. Verify the cluster you are upgrading supports upgrading. 
+For information, see [Verify Your Clusters Support Upgrading](checklist.html#resource-usage)
+ in the _Upgrade Preparation Checklist for <%= vars.product_short %>_.
+1. Verify that your Kubernetes environment is healthy. 
+For information, see [Verifying Deployment Health](verify-health.html).
+1. Install the <%= vars.k8s_runtime_abbr %> CLI.
+For information, see [Installing the <%= vars.k8s_runtime_abbr %> CLI](installing-cli.html).
+1. Log in to <%= vars.product_short %> using `tkgi login`.
+For more information, see [Logging in to <%= vars.product_short %>](login.html).  
+
+##<a id='upgrade-clusters'></a>Upgrade Clusters
+
+You can use the <%= vars.k8s_runtime_abbr %> CLI to upgrade an existing cluster to the current version of <%= vars.k8s_runtime_abbr %>.  
+
+<p class="note warning"><strong>Warning</strong>: Do not use <code>tkgi upgrade-cluster</code> or
+<code>tkgi upgrade-clusters</code> on clusters configured with a network profile CNI configuration.
+For more information, see <a href="https://docs.pivotal.io/tkgi/1-10/release-notes.html#1-10-0-do-notuse-resize-cluster">TKGI CLI Resize and Update Cluster Commands Remove Network Profile CNI Configuration from a Cluster</a>
+in the TKGI v1.10 <em>Release Notes</em>.
+</p>
+
+To upgrade the <%= vars.k8s_runtime_abbr %> version on individual or multiple clusters:
+
+* [Upgrade a Single Kubernetes Cluster](#upgrade-cluster)  
+* [Upgrade Multiple Kubernetes Clusters](#upgrade-clusters-multi)
+
+To monitor or stop a cluster upgrade, follow the procedures in 
+[Manage Your Kubernetes Cluster Upgrade Job](#manage-upgrade) below.
+
+###<a id='upgrade-cluster'></a>Upgrade a Single Cluster
+
+The <%= vars.product_short %> CLI provides `upgrade-cluster` for upgrading an individual <%= vars.product_tile %>-provisioned 
+Kubernetes cluster. 
+
+To upgrade an individual Kubernetes cluster, 
+run the following command:
+
+```
+tkgi upgrade-cluster CLUSTER-NAME
+```
+Where `CLUSTER-NAME` is the name of the Kubernetes cluster you want to upgrade.
+
+To upgrade multiple clusters, see [Upgrade Multiple Kubernetes Clusters](#upgrade-clusters-multi) below.
+
+For more information about the `tkgi upgrade-cluster` command, see [tkgi upgrade-cluster](cli/index.html#upgrade-cluster) in the _<%= vars.k8s_runtime_abbr %> CLI_ documentation.    
+
+###<a id='upgrade-clusters-multi'></a>Upgrade Multiple Clusters
+
+The <%= vars.product_short %> CLI provides `upgrade-clusters` for upgrading multiple <%= vars.product_tile %>-provisioned 
+Kubernetes clusters. 
+You can upgrade clusters serially, serially with some clusters designated as canary clusters, or entirely in parallel.  
+
+To upgrade a single cluster, see [Upgrade a Single Kubernetes Cluster](#upgrade-cluster) above.
+
+For more information about the `tkgi upgrade-clusters` command, see [tkgi upgrade-clusters](cli/index.html#upgrade-clusters) in the _<%= vars.k8s_runtime_abbr %> CLI_ documentation.    
+
+####<a id='upgrade-clusters-parallel'></a> Upgrade Clusters in Parallel
+
+To upgrade multiple Kubernetes clusters, run the following command:
+
+```
+tkgi upgrade-clusters --clusters CLUSTER-NAMES --max-in-flight CLUSTER-COUNT --wait
+```
+Where:
+
+* `CLUSTER-NAMES` is a comma-delimited list of the names of the Kubernetes clusters you want to upgrade. 
+
+* `CLUSTER-COUNT` is the maximum number of clusters to upgrade in parallel within an an AZ.  
+    * If the `CLUSTER-NAMES` list is longer than the `CLUSTER-COUNT`, the first set of clusters are upgraded in parallel and
+    subsequent clusters are queued and then upgraded in parallel as the preceding cluster upgrades complete.  
+    * If an upgrade fails for a cluster in the `CLUSTER-NAMES` list, the job continues to a subsequent cluster in the list.  
+    * To run the cluster upgrade job as a background task, remove the `--wait` argument.
+
+    <p class="note"><strong>Note:</strong> Run <code>upgrade-clusters</code> with a <code>--max-in-flight</code> 
+      argument less than your BOSH Director > Director Config > <strong>Director Workers</strong> value. 
+      For example, if your <strong>Director Workers</strong> value remains the default of <code>5</code>, 
+      run <code>upgrade-clusters</code> with a <code>--max-in-flight</code> argument value less than <code>5</code>.
+    </p>
+
+    <p class="note"><strong>Note:</strong> <code>max-in-flight</code> is an optional argument. 
+      If <code>max-in-flight</code> is not set, <%= vars.product_short %> uses the default 
+      <code>max-in-flight</code> value of <code>1</code> and the clusters are upgraded serially.
+    </p>
+
+For example:
+
+<pre class="terminal">
+$ tkgi upgrade-clusters --clusters k8-cluster-000,k8-cluster-001,k8-cluster-002 --max-in-flight 2  --wait
+<br>
+You are about to upgrade k8-cluster-000, k8-cluster-001 and k8-cluster-002.
+Warning: This operation may be long running and may block further operations on the cluster(s) until complete
+<br>
+Continue? (y/n):y
+Your taskID for the upgrade task is: d772aba0-2670-4fba-b26c-044b19d6ab60
+Started upgrading cluster: k8-cluster-000
+Started upgrading cluster: k8-cluster-001
+Finished upgrading cluster: k8-cluster-000
+Started upgrading cluster: k8-cluster-002
+Finished upgrading cluster: k8-cluster-001
+Finished upgrading cluster: k8-cluster-002
+Upgrade task d772aba0-2670-4fba-b26c-044b19d6ab60 is done.
+</pre>
+
+####<a id='upgrade-clusters-errors'></a> Upgrade Clusters With Canaries
+
+To upgrade multiple clusters and automatically stop upgrading clusters if a cluster upgrade fails, 
+specify your cluster list as canary clusters. 
+You can specify one or more clusters as canary clusters.  
+
+To upgrade multiple clusters with one or more canary clusters, run the following command:
+
+```
+tkgi upgrade-clusters --canaries CANARY-CLUSTER-NAMES --clusters CLUSTER-NAMES --wait
+```
+Where:
+
+* `CANARY-CLUSTER-NAMES` is a comma-delimited list of the names of the Kubernetes clusters you want to upgrade as canary clusters. 
+
+* `CLUSTER-NAMES` is a comma-delimited list of Kubernetes clusters to upgrade if all canary clusters successfully upgrade.
+    * The specified canary clusters are upgraded prior to upgrading the clusters in your `CLUSTER-NAMES` list.  
+    * Canary clusters are always upgraded serially.
+    * If an upgrade fails for a canary cluster, the entire `upgrade-clusters` job stops. 
+    * If an upgrade fails for a cluster in the `CLUSTER-NAMES` list, the `upgrade-clusters` job continues to a subsequent cluster in the list.  
+    * To run the cluster upgrade job as a background task, remove the `--wait` argument.  
+
+    <p class="note"><strong>Note:</strong> <code>--clusters</code> is a required argument. 
+    To configure <code>upgrade-clusters</code> to stop for any cluster upgrade failure, 
+    specify only one cluster in your <code>CLUSTER-NAMES</code> list and 
+    the remaining clusters in your <code>CANARY-CLUSTER-NAMES</code> list.
+    </p>
+
+    <p class="note"><strong>Note:</strong> Canary clusters are always upgraded serially. 
+      Only the clusters specified in the <code>--clusters</code> list are upgraded in parallel 
+      when you run <code>upgrade-clusters</code> with both <code>--canaries</code> and 
+      <code>--max-in-flight</code> arguments.
+    </p>
+
+For example:
+
+<pre class="terminal">
+$ tkgi upgrade-clusters --canaries k8-cluster-dev,k8-cluster-000,k8-cluster-001  --clusters k8-cluster-002  --wait
+<br>
+You are about to upgrade k8-cluster-dev k8-cluster-000, k8-cluster-001 and k8-cluster-002.
+Warning: This operation may be long running and may block further operations on the cluster(s) until complete
+
+Continue? (y/n):y
+Your taskID for the upgrade task is: ce31a1bb-380a-453f-afa0-835ffa1ce6ac
+Started upgrading cluster: k8-cluster-000
+Upgrading cluster succeeded: k8-cluster-000
+Started upgrading cluster: k8-cluster-001
+Upgrading cluster succeeded: k8-cluster-001
+Started upgrading cluster: k8-cluster-dev
+Upgrading cluster failed: k8-cluster-dev
+Upgrade task ce31a1bb-380a-453f-afa0-835ffa1ce6ac is done.
+</pre>
+
+
+##<a id='manage-upgrade'></a> Manage Your Cluster Upgrade Job
+
+You can use the <%= vars.k8s_runtime_abbr %> CLI to monitor and manage your <%= vars.product_tile %>-provisioned Kubernetes cluster 
+upgrade jobs.  
+
+###<a id='monitor-upgrades'></a> Monitor Your Clusters
+
+To review the status of the actions being performed on your clusters, 
+run the following command:
+
+```
+tkgi clusters
+```
+
+For example:
+<pre class="terminal">
+$ tkgi clusters
+<br>
+Upgrade is available to <%= vars.k8s_runtime_abbr %> Version: 1.9.0-build.1
+<br>
+<%= vars.k8s_runtime_abbr %> Version     Name               k8s Version  Plan Name  UUID                                  Status       Action
+1.9.0-build.1   k8-cluster-000     1.18.8       small      9527ebaa-e2fa-422f-a52b-de3c3f0e39a4  succeeded    UPGRADE
+1.9.0-build.1   k8-cluster-001     1.18.8       small      9527ebaa-e2fa-422f-a52b-de3c3f0e39a4  failed       UPGRADE
+1.9.0-build.1   k8-cluster-002     1.18.8       small      9527ebaa-e2fa-422f-a52b-de3c3f0e39a4  in progress  UPGRADE
+1.9.0-build.1   k8-cluster-003     1.18.8       small      9527ebaa-e2fa-422f-a52b-de3c3f0e39a4  queued       UPGRADE
+</pre>
+
+###<a id='monitor-upgrade-job'></a> Monitor Your Cluster Upgrade Job
+
+To review the status of your `upgrade-clusters` job, run the following command:
+
+```
+tkgi task TASKID
+```
+Where `TASKID` is the ID of the task that was returned when you ran `tkgi upgrade-clusters`.
+
+For example:
+<pre class="terminal">
+$ tkgi task ce31a1bb-380a-453f-afa0-835ffa1ce6ac
+<br>
+Your upgrade task is: done
+<br>
+Name           Status     Start time                     End time                            isCanary
+k8-cluster-000 succeeded  Mon, 14 Oct 2019 12:00:00 PDT  Mon, 14 Oct 2019 12:19:54 PDT       true
+k8-cluster-001 failed     Mon, 14 Oct 2019 12:20:00 PDT  ---                                 true
+</pre>
+
+###<a id='stop-upgrade-job'></a> Stop Your Cluster Upgrade Job
+
+To cancel a running `upgrade-clusters` job, run the following <%= vars.k8s_runtime_abbr %> CLI command:
+
+```
+tkgi cancel-task TASKID
+```
+Where `TASKID` is the ID of the task that was returned when you ran `tkgi upgrade-clusters`.
+
+<p class="note warning"><strong>Warning:</strong> <code>tkgi cancel-task</code> does not cancel cluster upgrades currently in progress. This command only cancels a job's pending cluster upgrades.
+</p>
+
+
+##<a id='after-upgrade-clusters'></a>After Upgrading Clusters
+
+###<a id='restore-cluster-sizing'></a>(Optional) Restore Cluster Sizing
+ 
+If you scaled your cluster up for the upgrade and you prefer to restore your cluster to its original sizing, 
+you can now scale the cluster back down to its previous configuration. 
+<%= vars.recommended_by %> recommends that you not scale down your clusters and continue to run them with 
+recommended configurations, reducing the chance of a future outage.  

@@ -1,0 +1,194 @@
+---
+title: Configuring Cluster Access to Private Docker Registries (Beta)
+owner: TKGI
+---
+
+This topic describes how to configure <%= vars.product_full %> Kubernetes clusters with
+private Docker registry SSL Certificate Authority (CA) certificates.
+
+## <a id="overview"></a>Overview
+
+Docker allows you to store Docker images in private registries and
+secures the registries with SSL CA certificates.
+You can enable your <%= vars.product_short %> Kubernetes clusters to authenticate
+into your private Docker registries by configuring your clusters with SSL CA certificates.
+
+You can configure both new and existing <%= vars.product_short %> clusters to have
+Docker registry CA certificates.
+
+<p class="note"><strong>Note:</strong> Only Linux clusters can be configured to have
+Docker registry CA certificates.
+</p>
+
+To create a new cluster configured with Docker registry SSL CA certificates, complete the following procedures:
+
+1. [Set up Your API Access Token](#set-token)
+1. [Create a Cluster with SSL CA Certificates](#create-cluster)
+
+To update an existing cluster with Docker registry SSL CA certificates, complete the following procedures:
+
+1. [Set up Your API Access Token](#set-token)
+1. [Update a Cluster with SSL CA Certificates](#update-cluster)
+
+<p class="note"><strong>Note:</strong> The procedures documented in this topic configure an individual
+  <%= vars.product_short %> Kubernetes cluster with a Docker Registry SSL CA certificate. 
+  See <a href="https://docs.pivotal.io/vmware-harbor/integrating-pks.html#provide-harbor-cert">
+  Import the CA Certificate Used to Sign the Harbor Certificate and Key to BOSH</a> in
+  <i>Integrating VMware Harbor Registry with <%= vars.product_short %></i> if you want to
+  apply a single Harbor Registry certificate to all of your <%= vars.product_short %> clusters.
+</p>
+
+<p class="note warning">
+<strong>Warning: </strong> Configuring <%= vars.product_short %> clusters with private Docker registry CA certificates is 
+currently in beta and is intended for evaluation and test purposes only. 
+Do not use this product in a <%= vars.k8s_runtime_abbr %> production environment.
+</p>
+
+## <a id='prerequisites'></a> Prerequisites
+
+Before configuring <%= vars.product_short %> Kubernetes clusters to have Docker registry CA certificates, you must have the following:
+
+* A private Docker registry configured to use SSL CA certificates. 
+For more information about securing a private Docker registry, see 
+[Use self-signed certificates](https://docs.docker.com/registry/insecure/#use-self-signed-certificates)
+in the _Docker Registry_ manual.
+
+<p class="note warning">
+<strong>Warning: </strong> The FQDN for the private Docker registry cannot contain a hyphen, dash, or semi-colon. If such a character is included in the registry name the <%= vars.control_plane %> will reject it as not a valid character.
+</p>
+
+## <a id='set-token'></a> Set up Your API Access Token
+
+The curl commands in this topic use an access token environment variable to
+authenticate to the <%= vars.control_plane %> endpoints.
+
+<%= partial 'create-auth-token-var' %>
+
+## <a id='create-cluster'></a> Create a Cluster with SSL CA Certificates
+
+You can create a new cluster configured with one or more SSL CA certificates by
+using the <%= vars.control_plane %> `create-cluster` endpoint.
+
+1. To create a cluster configured with one or more SSL CA certificates, run the following command:
+
+    ```
+    curl -X POST \
+      https://TKGI-API:9021/v1/clusters \
+      -H 'Accept: application/json' \
+      -H "Authorization: Bearer $YOUR-ACCESS-TOKEN" \
+      -H 'Content-Type: application/json' \
+      -H 'Host: TKGI-API:9021' \
+      -d '{
+      "name": "CLUSTER-NAME",
+      "plan_name": "PLAN-NAME",
+      "parameters": {
+        "kubernetes_master_host": "KUBERNETES-CONTROLPLANE-HOST",
+        "custom_ca_certs": [
+          {
+            "domain_name": "DOMAIN-NAME",
+            "ca_cert": "CA-CERTFICATE"
+          }
+        ]
+      }
+    }'
+    ```
+    Where:
+    * `TKGI-API` is the FQDN of your <%= vars.control_plane %> endpoint. For example, `api.tkgi.example.com`.
+    * `YOUR-ACCESS-TOKEN` is the name of your access token environment variable.
+    * `CLUSTER-NAME` is the name of your cluster.
+        <p class="note"><strong>Note</strong>: Use only lowercase characters when naming your cluster 
+        if you manage your clusters with Tanzu Mission Control (TMC). Clusters with names that include an uppercase character cannot be attached to TMC.
+        </p>
+    * `PLAN-NAME` is the name of your plan.
+    * `KUBERNETES-CONTROLPLANE-HOST` is your Kubernetes control plane host.
+    *  `DOMAIN-NAME` is a Docker Registry URL. You cannot remove an existing Docker Registry URL from a cluster.
+    If you specify a URL that is already registered with your cluster,
+    the cluster's existing CA certificate for that URL is overwritten.
+    * `CA-CERTFICATE` is the CA certificate that corresponds to `DOMAIN-NAME`. 
+    For more information about using a CA certificate in a <%= vars.control_plane %> command, see 
+    [Prepare a Certificate String for Command Line Use](#preparing-certificate), below.  
+    <br>
+    You can configure your cluster with additional certificates by including the certificates in
+    the <code>custom_ca_certs</code> array as additional <code>domain_name</code>,
+    <code>ca_cert</code> pairs.
+    <p class="note"><strong>Note:</strong> You can include wildcard characters in your
+    <code>domain_name</code> URLs. For example, <code>*.docker.com</code>.
+    </p>
+
+## <a id='update-cluster'></a> Update a Cluster with SSL CA Certificates
+
+You can update an existing cluster with one or more SSL CA certificates by using the <%= vars.control_plane %> `update-cluster` endpoint.
+
+1. To configure an existing cluster with one or more SSL CA certificates, run the following command:
+
+    ```
+    curl -X PATCH \
+      https://TKGI-API:9021/v1/clusters/CLUSTER-NAME \
+      -H 'Accept: application/json' \
+      -H "Authorization: Bearer $YOUR-ACCESS-TOKEN" \
+      -H 'Content-Type: application/json' \
+      -H 'Host: TKGI-API:9021' \
+      -d '{
+            "custom_ca_certs": [
+              {
+                "domain_name": "DOMAIN-NAME",
+                "ca_cert": "CA-CERTFICATE"
+              }
+            ]
+          }'
+    ```
+    Where:
+    * `TKGI-API` is the FQDN of your <%= vars.control_plane %> endpoint. For example, `api.tkgi.example.com`.
+    * `YOUR-ACCESS-TOKEN` is the name of your access token environment variable.
+    * `CLUSTER-NAME` is the name of your cluster.
+    *  `DOMAIN-NAME` is a Docker Registry URL. You cannot remove an existing Docker Registry URL from a cluster.
+    If you specify a URL that is already registered with your cluster, 
+    the cluster's existing CA certificate for that URL is overwritten.
+    * `CA-CERTFICATE` is the CA certificate that corresponds to `DOMAIN-NAME`. 
+    For more information about using a CA certificate in a <%= vars.control_plane %> command, see 
+    [Prepare a Certificate String for Command Line Use](#preparing-certificate), below.  
+    <br>
+    You can configure your cluster with additional certificates by including the certificates in
+    the <code>custom_ca_certs</code> array as additional <code>domain_name</code>,
+	 <code>ca_cert</code> pairs.
+    <p class="note"><strong>Note:</strong> You can include wildcard characters in your
+    <code>domain_name</code> URLs. For example, <code>*.docker.com</code>.
+    </p>
+
+    <p class="note warning"><strong>Warning</strong>: Do not use <code>tkgi update-cluster</code> 
+    on clusters configured with a network profile CNI configuration.
+    For more information, see <a href="https://docs.pivotal.io/tkgi/1-10/release-notes.html#1-10-0-do-notuse-resize-cluster">TKGI CLI Resize and Update Cluster Commands Remove Network Profile CNI Configuration from a Cluster</a> 
+    in the TKGI v1.10 <em>Release Notes</em>.
+    </p>
+
+## <a id='certificate-formats'></a> SSL CA Certificate Formats
+
+SSL CA certificates are unique CA-issued ASCII text strings.  
+
+The CAs issue most certificates as a PEM formatted ASCII text files. 
+PEM certificate files typically have the extensions `.pem`, `.crt`, `.cer`, or `.key`.  
+
+PEM files start with the string `-----BEGIN CERTIFICATE-----`, terminate with `-----END CERTIFICATE-----`, 
+and are Base64-encoded. 
+Certificate strings are long and are frequently stored within a certificate file with newline wrapping every 64 characters.  
+
+#### <a id='preparing-certificate'></a> Prepare a Certificate String for Command Line Use
+
+When you provide a certificate string on a command line or <%= vars.control_plane %> command, as in the <%= vars.control_plane %> commands above, 
+your certificate string must be provided without newline wrapping.  
+
+<p class="note"><strong>Note:</strong> The <%= vars.control_plane %> does not validate certificate strings for correctness. 
+  Ensure your certificate string is free of newline characters before using the certificate string in a <%= vars.control_plane %> command.
+</p>
+
+To prepare your certificate string for command line use: 
+
+1. To remove newline wrapping from a certificate string, run the following command:  
+
+    ```
+    awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}'  CA-PEM
+    ```
+
+    Where `CA-PEM` is the filename of your PEM-formatted CA certificate file.  
+<br>
+    This command returns your certificate string without newline wrapping.   

@@ -1,0 +1,154 @@
+---
+title: Using Compute Profiles (vSphere)
+owner: TKGI
+---
+
+This topic describes how to use compute profiles for Linux- and Windows-based Kubernetes clusters on vSphere with NSX-T networking and
+for Linux-based Kubernetes clusters on vSphere without NSX-T networking.
+
+Compute profiles let you customize cluster resources parameters.
+
+## <a id="how-created"></a> How Compute Profiles are Created
+
+<%= vars.k8s_runtime_abbr %> cluster administrators can create and delete compute profiles, as described in the [Creating and Managing Compute Profiles with the CLI (vSphere)](./compute-profiles-manage.html) topic.
+
+After an administrator creates a compute profile, cluster managers (`pks.cluster.manage`) can create clusters with it or assign it to existing clusters.
+
+## <a id="list-profiles"></a> List Compute Profiles
+
+To list available compute profiles, run the following command:
+
+```
+tkgi compute-profiles
+```
+
+For example:
+
+<pre class="terminal">
+$ tkgi compute-profiles
+
+Name                              Description
+custom-nodes-compute-profile      custom-nodes-compute-profile
+custom-node-pools-compute-profile custom-node-pools-compute-profile
+Dc-east-single-node-pool          A profile for the east datacenter with a single node pool
+dc-east-mixed                     A profile for the east datacenter with heterogeneous workers
+
+</pre>
+
+## <a id='create'></a> Create a Cluster with a Compute Profile
+
+You can assign a compute profile to a Kubernetes cluster at the time of cluster creation.
+
+To create an <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes cluster with a compute profile, run the following command:
+
+```
+tkgi create-cluster CLUSTER-NAME --external-hostname HOSTNAME --plan PLAN-NAME --compute-profile COMPUTE-PROFILE-NAME --node-pool-instances "NODE-POOL-NAME:INSTANCES"
+```
+
+Where:
+
+* `CLUSTER-NAME` is a unique name for your cluster.  
+    <p class="note"><strong>Note</strong>: Use only lowercase characters when naming your cluster 
+    if you manage your clusters with Tanzu Mission Control (TMC). Clusters with names that include an uppercase character cannot be attached to TMC.
+    </p>
+* `HOSTNAME` is your external hostname used for accessing the Kubernetes API.
+* `PLAN-NAME` is the name of the <%= vars.k8s_runtime_abbr %> plan you want to use for your cluster.
+* `COMPUTE-PROFILE-NAME` is the name of the compute profile you want to use for your cluster.
+* (Optional) `--node-pool-instances` overrides the worker node instance counts specified in the compute profile:
+  - `NODE-POOL-NAME` is the name of the node pool you want to specify the number of worker node instances for.
+  - `INSTANCES` is the number of worker nodes for the node pool name specified as `NODE-POOL-NAME`.
+
+For example:
+
+<pre class="terminal">
+tkgi create-cluster custom-node-pools -e test.tkgi.shep.api.com --compute-profile custom-node-pools-compute-profile -p "small" --node-pool-instances "tiny-1:3"
+
+TKGI Version:             1.9.0-build.11
+Name:                     test
+K8s Version:              1.18.5
+Plan Name:                small
+UUID:                     <UUID of deployment>1
+Last Action:              CREATE
+Last Action State:        in progress
+Last Action Description:  Creating cluster
+Kubernetes Master Host:   test.tkgi.shep.api.com
+Kubernetes Master Port:   8443
+Worker Nodes:             4
+Kubernetes Master IP(s):  In Progress
+Network Profile Name:
+Kubernetes Profile Name:
+Compute Profile Name:     custom-node-pools-compute-profile
+Tags:
+</pre>
+
+## <a id="update-profile"></a> Assign a Compute Profile to an Existing Cluster
+
+<%= vars.k8s_runtime_abbr %> supports changing the compute profile for an already created cluster.
+You can use this procedure to:
+
+- assign a compute profile to a cluster that does not have one, or
+- change a cluster's existing profile to a new one
+
+<p class="note"><strong>Note:</strong> Compute profiles do not support moving a cluster's nodes to different Availability Zones.</p>
+
+<p class="note warning"><strong>Warning:</strong> Do not scale out or scale in existing control plane nodes by reconfiguring the TKGI tile or by using a compute profile. Reducing a cluster's number of control plane nodes may remove a control plane node and cause the cluster to become inactive.</p>
+
+This is the procedure to change a cluster's compute profile:
+
+1. Do one of the following
+	- Choose a new compute profile for the cluster.
+	See [List Compute Profiles](#list-profiles).
+	- Have a <%= vars.k8s_runtime_abbr %> cluster administrator define and create a new compute profile as described in [Create a Compute Profile](./compute-profiles-manage.html#create) in _Creating and Managing Compute Profiles with the CLI (vSphere)_.
+  		- The name of the new compute profile must be unique and different from the previously assigned compute profile.
+
+1. Run the following command to update the cluster with the new compute profile:
+
+    ```
+    tkgi update-cluster CLUSTER-NAME --compute-profile NEW-COMPUTE-PROFILE-NAME ---node-pool-instances "NODE-POOL-NAME:INSTANCES"
+    ```
+
+    Where:
+    * `CLUSTER-NAME` is the name of the existing Kubernetes cluster
+    * `NEW-COMPUTE-PROFILE-NAME` is the name of the new compute profile you want to apply to the cluster.
+    * (Optional) `--node-pool-instances "NODE-POOL-NAME:INSTANCES"` updates the number of worker nodes for node pool `NODE-POOL-NAME` to be `INSTANCES`. `NODE-POOL-NAME` should be the name of the node pool in the new compute profile.
+
+	  For example:
+
+	<pre class="terminal">
+	tkgi update-cluster test --compute-profile new-compute-profile
+
+	Update summary for cluster test:
+	Compute Profile Name: new-compute-profile
+	Are you sure you want to continue? (y/n): y
+	Use 'tkgi cluster test' to monitor the state of your cluster
+  </pre>
+
+### <a id="compute-profile-validation"></a> Compute Profile Update and Resize Validation
+
+There are strict validation rules for the `tkgi update-cluster --compute-profile` command:
+
+- You cannot use the compute profile to change Availability Zones of a cluster.
+- If any optional field is unspecified at the time of cluster creation or cluster update, then the value of that field is set to the value of the corresponding field from the plan.
+- Values passed to `--num-nodes` are ignored.
+- Values passed to `--node-pool-instances` must match the labels of the node pools specified in the compute profile.
+
+Clusters created with compute profile in <%= vars.k8s_runtime_abbr %> 1.8 and earlier:
+
+- You cannot update a compute profile for a cluster that already has an associated profile created in <%= vars.k8s_runtime_abbr %> v1.8 or earlier.
+
+
+## <a id="resize"></a> Resize a Cluster that Has an Existing Compute Profile
+
+<%= vars.k8s_runtime_abbr %> supports using the CLI to resize a cluster already created or assigned with a compute profile, without having to create a new compute profile.
+
+To do this, run the `tkgi update-cluster` command with the `--node-pool-instances` option.
+Pass in a comma-separated list that associates node pools defined in the compute profile with new instance counts.
+This changes the number of instances from each node pool.
+The node pools must already be defined in the cluster's compute profile.
+
+For example, to resize a cluster `custom-node-pools-cluster` to use three nodes from the node pool named `tiny-1` and seven from the pool named `medium-2`:
+
+<pre class="terminal">
+tkgi update-cluster custom-node-pools-cluster
+--node-pool-instances "tiny-1:3,medium-2:7"
+</pre>

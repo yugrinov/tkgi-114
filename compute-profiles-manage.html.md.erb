@@ -1,0 +1,658 @@
+---
+title: Creating and Managing Compute Profiles with the CLI (vSphere)
+owner: TKGI
+---
+
+This topic describes how to use the `tkgi` CLI to create and manage compute profiles
+for Linux- and Windows-based Kubernetes clusters on vSphere with NSX-T networking and
+for Linux-based Kubernetes clusters on vSphere without NSX-T networking.
+
+For more information on how to use compute profiles, see
+[Using Compute Profiles (vSphere)](./compute-profiles-use.html).
+
+<%= vars.k8s_runtime_abbr %> versions prior to v1.9 used a different format for compute profiles, and these older profiles cannot be managed with the `tkgi` CLI.
+For information about pre-v1.9 compute profiles, see [Using Compute Profiles](https://docs.pivotal.io/tkgi/1-8/compute-profiles.html) in the <%= vars.k8s_runtime_abbr %> v1.8 documentation.
+
+## <a id='about'></a>About Compute Profiles
+
+A compute profile enables cluster administrators, `pks.clusters.admin`, to override the default settings defined by a plan.
+
+Using a compute profile, cluster administrators can customize the following:
+
+* Compute resources such as CPU, memory, ephemeral disk, and persistent disk for Kubernetes control plane and worker nodes
+* vSphere resources for Kubernetes control plane and worker nodes
+
+<p class="note"><strong>Note</strong>: A compute profile overrides only those CPU, memory, disk, and AZ settings that you define in the profile. If you do not define a setting in the profile, its configuration is inherited from the plan.</p>
+
+After you create a compute profile, cluster managers, `pks.clusters.manage`, can apply it to one or more Kubernetes clusters.
+
+For more information, see [Compute Profiles vs. Plans](#vs-plans) below.
+
+
+## <a id="create"></a> Create a Compute Profile
+
+To create a compute profile in <%= vars.k8s_runtime_abbr %>, a
+cluster administrator must:
+
+1. Define a compute profile in a JSON configuration file.
+See [Compute Profile Format](#format) and
+[Compute Profile Parameters](#params) below.
+
+1. Use the <%= vars.k8s_runtime_abbr %> CLI to define the compute profile
+within <%= vars.k8s_runtime_abbr %>. See
+[The create-compute-profile Command](#run-create) below.
+
+### <a id="format"></a> Compute Profile Format
+
+To create a compute profile, a cluster administrator first defines it as a JSON file. Every profile must include the `name`, `description`, and `parameters` properties. Then, depending on what compute resources you want to customize, define `azs`, `control_plane`, or `node_pools`. For example, you can define the following:
+
+* Both `control_plane` and `node_pools`, with or without `azs`
+* `control_plane` or `node_pools`, with or without `azs`
+
+See the table below for examples of compute profiles.
+
+<table>
+  <tr>
+    <th width="28%">Example</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><a href="#custom-nodes">Custom Nodes</a></td>
+    <td>Define custom compute resources for Kubernetes control plane and worker nodes.</td>
+  </tr>
+  <tr>
+    <td><a href="#node-pools">Worker Node Pools</a></td>
+    <td>Define multiple pools of worker nodes.</td>
+  </tr>
+  <tr>
+    <td><a href="#custom-azs">Custom AZs (vSphere with NSX-T Only)</a></td>
+    <td>Define AZs for Kubernetes control plane nodes and worker node pools dynamically.</td>
+  </tr>
+</table>
+
+For information about all of the parameters that you can specify in a compute
+profile, see [Compute Profile Parameters](#params) below.
+
+#### <a id='custom-nodes'></a> Custom Nodes
+
+Cluster administrators can define custom compute resources
+for control plane nodes and/or worker nodes in a compute profile instead of
+updating plans. Then, cluster managers can apply
+the profile to an existing cluster to update the cluster
+with the new compute resources. As a result, the overall impact to the
+<%= vars.k8s_runtime_abbr %> 
+control plane and other clusters is smaller. 
+
+The example below defines compute resources for control plane nodes
+and one node pool for workers:
+
+```
+{
+  "name": "custom-nodes-compute-profile",
+  "description": "custom-nodes-compute-profile",
+  "parameters": {
+    "cluster_customization": {
+      "control_plane": {
+        "cpu": 2,
+        "memory_in_mb": 4096,
+        "ephemeral_disk_in_mb": 16384,
+        "persistent_disk_in_mb": 16384,
+        "instances": 3
+      },
+      "node_pools": [{
+        "cpu": 2,
+        "memory_in_mb": 4096,
+        "ephemeral_disk_in_mb": 16384,
+        "persistent_disk_in_mb": 16384,
+        "name": "tiny-1",
+        "instances": 5,
+        "max_worker_instances": 10
+      }]
+    }
+  }
+}
+```
+
+#### <a id='node-pools'></a> Worker Node Pools
+
+Cluster administrators can define pools of worker nodes with different compute resources. Cluster managers then apply the compute profile to one or more clusters. This enables cluster managers to schedule workloads with different compute requirements on a single cluster.
+
+The example below defines compute resources for control plane nodes and two worker node pools. The `control_plane` block in this example is optional.
+
+
+```
+{
+  "name": "custom-node-pools-compute-profile",
+  "description": "custom-node-pools-compute-profile",
+  "parameters": {
+    "cluster_customization": {
+      "control_plane": {
+        "cpu": 2,
+        "memory_in_mb": 4096,
+        "ephemeral_disk_in_mb": 16384,
+        "instances": 3
+      },
+      "node_pools": [{
+          "cpu": 2,
+          "memory_in_mb": 4096,
+          "ephemeral_disk_in_mb": 16384,
+          "persistent_disk_in_mb": 16384,
+          "name": "tiny-1",
+          "instances": 5,
+          "node_labels": "k1=v1,k2=v2",
+          "node_taints": "k3=v3:PreferNoSchedule, k4=v4:PreferNoSchedule"
+        },
+        {
+          "cpu": 4,
+          "memory_in_mb": 4096,
+          "ephemeral_disk_in_mb": 32768,
+          "name": "medium-2",
+          "instances": 1,
+          "max_worker_instances": 5,
+          "node_labels": "k1=v3,k2=v4",
+          "node_taints": "k3=v3:NoSchedule, k4=v4:NoSchedule"
+        }
+      ]
+    }
+  }
+}
+```
+
+#### <a id='custom-azs'></a> Custom AZs (vSphere with NSX-T Only)
+
+Cluster administrators can define AZs in a compute profile instead of adding new AZs in the BOSH Director tile. Cluster managers then use it to specify AZs for a cluster dynamically. As a result, you do not need to make AZ changes to each <%= vars.k8s_runtime_abbr %> plan and the overall impact to the
+<%= vars.k8s_runtime_abbr %> control plane is smaller.
+
+<p class="note"><strong>Note</strong>: You cannot use compute profiles to change the AZs of any nodes in an existing cluster.
+<%= vars.k8s_runtime_abbr %> does not support changing the AZs of existing control plane nodes, but you can change the AZs of worker nodes by modifying their cluster's plan.</p>
+
+The example below defines three AZs, `cp-hg-az-1`, `cp-hg-az-2`, and `cp-hg-az-3`, in the `azs` block, which are then referenced in the `cluster_customization` block.
+
+```
+{
+  "name": "azs-custom-compute-profile",
+  "description": "Profile for customized AZs",
+  "parameters": {
+    "azs": [{
+        "name": "cp-hg-az-1",
+        "cpi": "ff8d93840299bd7474f5",
+        "cloud_properties": {
+          "datacenters": [{
+            "name": "vSAN_Datacenter",
+            "clusters": [{
+              "vSAN_Cluster": {
+                "host_group": {
+                  "drs_rule": "MUST",
+                  "name": "CP-HG-AZ-1"
+                }
+              }
+            }]
+          }]
+        }
+      },
+      {
+        "name": "cp-hg-az-2",
+        "cpi": "ff8d93840299bd7474f5",
+        "cloud_properties": {
+          "datacenters": [{
+            "name": "vSAN_Datacenter",
+            "clusters": [{
+              "vSAN_Cluster": {
+                "host_group": {
+                  "drs_rule": "MUST",
+                  "name": "CP-HG-AZ-2"
+                }
+              }
+            }]
+          }]
+        }
+      },
+      {
+        "name": "cp-hg-az-3",
+        "cpi": "ff8d93840299bd7474f5",
+        "cloud_properties": {
+          "datacenters": [{
+            "name": "vSAN_Datacenter",
+            "clusters": [{
+              "vSAN_Cluster": {
+                "host_group": {
+                  "drs_rule": "MUST",
+                  "name": "CP-HG-AZ-3"
+                }
+              }
+            }]
+          }]
+        }
+      }
+    ],
+    "cluster_customization": {
+      "control_plane": {
+        "cpu": 4,
+        "memory_in_mb": 16384,
+        "ephemeral_disk_in_mb": 32768,
+        "az_names": ["cp-hg-az-1", "cp-hg-az-2", "cp-hg-az-3"],
+        "instances": 3
+      },
+      "node_pools": [{
+        "name": "x-large",
+        "cpu": 4,
+        "memory_in_mb": 8192,
+        "ephemeral_disk_in_mb": 32768,
+        "az_names": ["cp-hg-az-1", "cp-hg-az-2", "cp-hg-az-3"],
+        "instances": 3,
+        "max_worker_instances": 25,
+        "node_labels": "k1=v1,k2=v2",
+        "node_taints": "k3=v3:NoSchedule, k4=v4:NoSchedule"
+      }]
+    }
+  }
+}
+```
+
+### <a id="params"></a> Compute Profile Parameters
+
+The compute profile JSON configuration file includes the following top-level
+properties:
+
+<table>
+  <tr>
+    <th width="29%">Property</th>
+    <th>Type</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>name</code></td>
+    <td>String</td>
+    <td>(<strong>Required</strong>) Name of the compute profile. You use this name when managing the
+    compute profile or assigning the profile to a Kubernetes cluster through
+    the TKGI CLI.</td>
+  </tr>
+  <tr>
+    <td><code>description</code></td>
+    <td>String</td>
+    <td>(<strong>Required</strong>) Description of the compute profile.</td>
+  </tr>
+  <tr>
+    <td><code>parameters</code></td>
+    <td>Object</td>
+    <td><strong>(Required)</strong> Properties defining the main body of the compute profile such as <code>azs</code> and
+    <code>cluster_customization</code>.</td>
+  </tr>
+  <tr>
+    <td><code>azs</code></td>
+    <td>Array</td>
+    <td>(<strong>Optional</strong>) Properties defining one or more AZs, including the <code>name</code>, <code>cpi</code>, and <code>cloud_properties</code> settings.
+    See <a href="#cloud-properties">azs Block</a> below.</td>
+  </tr>
+  <tr>
+    <td><code>cluster_customization</code></td>
+    <td>Object</td>
+    <td>(<strong>Optional</strong>) Properties defining the <code>control_plane</code> and <code>node_pools</code> settings. See <a href="#control-plane"><code>control_plane Block</code></a> and <a href="#worker-nodes"><code>node_pools Block</code></a> below.</td>
+  </tr>
+</table>
+
+#### <a id="cloud-properties"></a>`azs` Block (vSphere with NSX-T Only)
+
+This optional block defines where Kubernetes control plane and worker nodes are created
+within your vSphere infrastructure. You can define one or more AZs. 
+
+If you define the `azs` block, do not specify the `persistent_disk_in_mb`
+property in `cluster_customization`. You can specify either `azs` or
+`persistent_disk_in_mb`, but not both.
+
+
+Specify the properties below for each AZ. For more information about
+the `cloud_properties` schema, see [AZs](https://bosh.io/docs/vsphere-cpi/#azs) in the BOSH documentation.
+
+<table>
+  <tr>
+    <th width="28%">Property</th>
+    <th>Type</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>name</code></td>
+    <td>String</td>
+    <td>Name for the AZ where you want to deploy Kubernetes cluster VMs. For example,
+      <code>cp-hg-az-1</code>.</td>
+  </tr>
+  <tr>
+    <td><code>cpi</code></td>
+    <td>String</td>
+    <td>BOSH CPI ID of your <%= vars.k8s_runtime_abbr %> deployment. For example,
+      <code>abc012abc345abc567de</code>. For instructions on how to obtain the ID, see <a href="#retrieve-cpi-id">Retrieve the BOSH CPI ID</a>.</td>
+  </tr>
+  <tr>
+    <td><code>cloud_properties</code></td>
+    <td>Object</td>
+    <td>Properties defining vSphere <code>datacenters</code> for your Kubernetes cluster VMs.</td>
+  </tr>
+  <tr>
+    <td><code>datacenters</code></td>
+    <td>Array</td>
+    <td>Array of datacenters. Define only one datacenter.</td>
+  </tr>
+  <tr>
+    <td><code>name</code></td>
+    <td>String</td>
+    <td>Name of your vSphere datacenter as it appears in Ops Manager and your cloud provider console. For example, <code>vSAN_Datacenter</code>.</td>
+  </tr>
+  <tr>
+    <td><code>clusters</code></td>
+    <td>Array</td>
+    <td>Array of clusters. Define only one cluster.</td>
+  </tr>
+  <tr>
+    <td><code>CLUSTER-NAME</code></td>
+    <td>String</td>
+    <td>Name of your vSphere compute cluster. For example, <code>vSAN_Cluster</code>. This section defines <code>host_group</code>.</td>
+  </tr>
+  <tr>
+    <td><code>host_group</code></td>
+    <td>Object</td>
+    <td>Properties of the host group that you want to use for your Kubernetes cluster VMs. This includes <code>name</code> and <code>drs_rule.</td>
+  </tr>
+  <tr>
+    <td><code>name</code></td>
+    <td>String</td>
+    <td>Name of the host group in vSphere.</td>
+  </tr>
+  <tr>
+    <td><code>drs_rule</code></td>
+    <td>String</td>
+    <td>Specify <code>MUST</code>. If you use vSAN stretched clusters, specify
+    <code>SHOULD</code>.</td>
+  </tr>
+</table>
+
+####<a id="retrieve-cpi-id"></a> Retrieve the BOSH CPI ID
+
+Use the following procedure to retrieve the BOSH CPI ID for your
+<%= vars.k8s_runtime_abbr %> deployment.
+
+1. Locate the credentials that were used to import the Ops Manager .ova or .ovf file into your virtualization system. You configured these credentials when you installed Ops Manager.
+    <p class="note"><strong>Note</strong>: If you lose your credentials, you must shut down the Ops Manager VM in the vSphere UI and reset the password. See <a href="https://docs.vmware.com/en/VMware-vSphere/6.5/com.vmware.vsphere.security.doc/GUID-4BDBF79A-6C16-43B0-B0B1-637BF5516112.html">vCenter Password Requirements and Lockout Behavior</a> in the vSphere documentation for more information.</p>
+
+1. From a command line, run the following command to SSH into the Ops Manager VM:
+
+    ```
+    ssh ubuntu@OPS-MANAGER-FQDN
+    ```
+    Where `OPS-MANAGER-FQDN` is the fully qualified domain name (FQDN) of Ops Manager.
+
+1. When prompted, enter the password that you configured during the .ova deployment
+into vCenter. For example:
+  <pre class="terminal">
+  $ ssh ubuntu&#64;my-opsmanager-fqdn.example.com
+  Password: ***********
+  </pre>
+
+1. Run `bosh cpi-config` to locate the Cloud Provider Interface (CPI) name for your deployment. For example:
+
+    <pre class="terminal">$ bosh cpi-config
+    Using environment 'BOSH-DIRECTOR-IP' as client 'ops_manager'
+    cpis:
+    &#45; migrated_from:
+      &#45; name: ""
+      name: YOUR-CPI-NAME
+    </pre>
+    For more information about running BOSH commands in your <%= vars.product_short %> deployment, see [Using BOSH Diagnostic Commands in <%= vars.product_short %>](diagnostic-tools.html).
+
+#### <a id="control-plane"></a>`control_plane` Block
+
+This optional block defines properties for Kubernetes control plane node instances.
+
+When defining the `control_plane` block,
+you must specify either `cpu`, `memory_in_mb`, and
+`ephemeral_disk_in_mb` or none of the three.
+
+<table>
+  <tr>
+    <th width="30%">Property</th>
+    <th>Type</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>cpu</code></td>
+    <td>Integer</td>
+    <td>CPU count for control plane instances.</td>
+  </tr>
+  <tr>
+    <td><code>memory_in_mb</code></td>
+    <td>Integer</td>
+    <td>RAM for control plane instances.</td>
+  </tr>
+  <tr>
+    <td><code>ephemeral_disk_in_mb</code></td>
+    <td>Integer</td>
+    <td>Ephemeral disk for control plane instances.</td>
+  </tr>
+  <tr>
+    <td><code>persistent_disk_in_mb</code></td>
+    <td>Integer</td>
+    <td>Persistent disk for control plane instances. Do not specify this parameter if you intend to define the <code>azs</code> block in the compute profile.</td>
+  </tr>
+  <tr>
+    <td><code>az_names</code></td>
+    <td>Array</td>
+    <td>One or more AZs in which you want control plane instances to run.
+     You defined these AZs in the <code>azs</code> block of the compute profile.</td>
+  </tr>
+  <tr>
+    <td><code>instances</code></td>
+    <td>Integer</td>
+    <td>Number of control plane instances. Specify <code>1</code>, <code>3</code>, or <code>5</code>.</td>
+  </tr>
+</table>
+
+Do not assign the `name` property to this block.
+
+#### <a id="worker-nodes"></a>`node_pools` Block
+
+This optional block defines properties for Kubernetes worker nodes.
+You can define one or more node pools.
+
+When defining the `node_pools` block,
+you must specify either `cpu`, `memory_in_mb`, and
+`ephemeral_disk_in_mb` or none of the three.
+
+<table>
+  <tr>
+    <th width="30%">Property</th>
+    <th>Type</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>name</code></td>
+    <td>String</td>
+    <td>Name of the node pool.</td>
+  </tr>
+  <tr>
+    <td><code>cpu</code></td>
+    <td>Integer</td>
+    <td>CPU count for worker node instances.</td>
+  </tr>
+  <tr>
+    <td><code>memory_in_mb</code></td>
+    <td>Integer</td>
+    <td>RAM for worker node instances.</td>
+  </tr>
+  <tr>
+    <td><code>ephemeral_disk_in_mb</code></td>
+    <td>Integer</td>
+    <td>Ephemeral disk for worker node instances.</td>
+  </tr>
+  <tr>
+    <td><code>persistent_disk_in_mb</code></td>
+    <td>Integer</td>
+    <td>Persistent disk for worker node instances.
+    Do not specify this parameter if you intend to define the <code>azs</code> block in the compute profile.</td>
+  </tr>
+  <tr>
+    <td><code>az_names</code></td>
+    <td>Array</td>
+    <td>One or more AZs in which you want worker node instances to run. You defined these
+    AZs in the <code>azs</code> block of the compute profile.</td>
+  </tr>
+  <tr>
+    <td><code>instances</code></td>
+    <td>Integer</td>
+    <td>Number of worker node instances.</td>
+  </tr>
+  <tr>
+    <td><code>max_worker_instances</code></td>
+    <td>Integer</td>
+    <td>Maximum number of worker node instances for the node pool.</td>
+  </tr>
+  <tr>
+    <td><code>node_labels</code></td>
+    <td>String</td>
+    <td>One or more comma-delimited <code>key:value</code> pair labels you want to apply to worker node instances. 
+    For information on kubectl label syntax, see <a href="https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#label">label</a> 
+  in the kubectl documentation.</td>
+  </tr>
+  <tr>
+    <td><code>node_taints</code></td>
+    <td>String</td>
+    <td>One or more comma-delimited <code>key=value:effect</code> taints you want to apply to worker node instances. 
+    For information on kubectl taint syntax, see <a href="https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#taint">taint</a> 
+  in the kubectl documentation.</td>
+  </tr>
+</table>
+
+<p class="note"><strong>Note</strong>: You must always configure at least one Node Pool group 
+  without a <code>node_taints</code> definition or with <code>PreferNoSchedule</code> taints. <code>kube-scheduler</code> will use this 
+  Node Pool group to schedule core Pods such as the <code>coredns</code> Pod. 
+  For more information about taints, see <a href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/">Taints and Tolerations</a> 
+  in the Kubernetes documentation.</p>
+
+### <a id="run-create"></a> The create-compute-profile Command
+
+After a compute profile is defined in a JSON file as described in [Compute Profile Format](#format),
+a cluster administrator can create the compute profile by running the following <%= vars.k8s_runtime_abbr %> CLI command:
+
+```
+tkgi create-compute-profile PATH-TO-YOUR-COMPUTE-PROFILE-CONFIGURATION
+```
+Where `PATH-TO-YOUR-COMPUTE-PROFILE-CONFIGURATION` is the path to the JSON file
+you created when defining the compute profile.
+
+For example:
+
+<pre class="terminal">
+$ tkgi create-compute-profile dc-east-mixed.json
+
+Compute profile dc-east-mixed successfully created
+</pre>
+
+Only cluster administrators, `pks.clusters.admin`, can create compute profiles.
+If a cluster manager `pks.clusters.manage` or read-only admin `pks.clusters.admin-read-only` attempts to create a compute profile, the following error occurs:
+
+```
+You do not have enough privileges to perform this action. Please contact the <%= vars.k8s_runtime_abbr %> administrator.
+```
+
+After an administrator creates a compute profile, cluster managers can create clusters with it or assign it to existing clusters.
+For more information, see the [Using Compute Profiles (vSphere)](./compute-profiles-use.html) topic.
+
+## <a id="manage"></a> Manage Compute Profiles
+
+<%= vars.k8s_runtime_abbr %> administrators can delete compute profiles.
+Administrators can also perform the same operations that cluster managers use to list compute profiles and manage how clusters use them.
+
+<p class="note warning"><strong>Warning:</strong> These commands do not work for compute profiles created using the <%= vars.k8s_runtime_abbr %> API in <%= vars.k8s_runtime_abbr %> v1.8 or earlier.</p>
+
+
+### <a id="view"></a> View a Compute Profile
+
+To view details about a compute profile, run the following command:
+
+```
+tkgi compute-profile COMPUTE-PROFILE-NAME
+```
+
+Where `COMPUTE-PROFILE-NAME` is the name of the compute profile you want to
+view.
+
+For example:
+
+<pre class="terminal">
+tkgi compute-profile test-compute-profile
+
+Name:         test-compute-profile
+Description:  test-compute-profile
+Parameters:
+  Cluster Customization:
+    Control Plane:
+      Name:
+      Instances:            3
+      CPU:                  2
+      Memory (Mb):          4096
+      Ephemeral Disk (Mb):  16384
+    Node Pool:
+      Name:                 tiny-1
+      Instances:            5
+      CPU:                  2
+      Memory (Mb):          4096
+      Ephemeral Disk (Mb):  16384
+    Node Pool:
+      Name:                 medium-2
+      Instances:            1
+      CPU:                  4
+      Memory (Mb):          4096
+      Ephemeral Disk (Mb):  32768
+</pre>
+
+### <a id="delete"></a> Delete a Compute Profile
+
+To delete a compute profile, run the following command:
+
+```
+tkgi delete-compute-profile COMPUTE-PROFILE-NAME
+```
+
+Where `COMPUTE-PROFILE-NAME` is the name of the compute profile you want to delete.
+
+For example:
+<pre class="terminal">
+tkgi delete-compute-profile test-compute-profile-8
+
+Are you sure you want to delete the compute profile test-compute-profile-8? (y/n): y
+Deletion of test-compute-profile-8 completed
+</pre>
+
+Limitations:
+
+- You cannot delete a compute profile that is in use.
+The profile must be disassociated from all clusters, or all associated clusters must be deleted.
+
+- Only cluster administrators, `pks.clusters.admin`, can delete compute profiles.
+If a cluster manager `pks.clusters.manage` or read-only admin `pks.clusters.admin-read-only` attempts to delete a compute profile, the following error occurs:
+
+	```
+	You do not have enough privileges to perform this action. Please contact the <%= vars.k8s_runtime_abbr %> administrator.
+	```
+
+### <a id="user-ops"></a> Cluster Manager Operations
+
+The following sections link to operations that both <%= vars.k8s_runtime_abbr %> administrators and cluster managers can perform on compute profiles,
+documented in the [Using Compute Profiles (vSphere)](compute-profiles-use.html) topic.
+
+* [List Compute Profiles](compute-profiles-use.html#list-profiles)
+* [Create a Cluster with a Compute Profile](compute-profiles-use.html#create)
+* [Assign a Compute Profile to an Existing Cluster](compute-profiles-use.html#assign)
+* [Resize a Cluster that Has an Existing Compute Profile](compute-profiles-use.html#resize)
+
+## <a id="vs-plans"></a> Compute Profiles vs. Plans
+
+As with plans defined in <%= vars.k8s_runtime_abbr %> tile **Plans** panes,
+compute profiles let <%= vars.k8s_runtime_abbr %> administrators define cluster resource choices for developers using Kubernetes.
+
+Compute profiles offer more granular control over cluster topology and node sizing than plans do.
+For example, compute profiles can define heterogenous clusters with different
+CPU, memory, ephemeral disk, or persistent disk settings for control plane nodes and worker nodes.
+
+You can also apply a compute profile to specific clusters, overriding the default settings defined by their plan and possibly avoiding the need to create new plans.
+
+You use the <%= vars.k8s_runtime_abbr %> tile to manage plans
+and the <%= vars.k8s_runtime_abbr %> CLI to manage compute profiles.

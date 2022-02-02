@@ -1,0 +1,70 @@
+---
+title: Viewing and Troubleshooting the Health Status of Cluster Network Objects
+owner: TKGI-NSX-T
+---
+
+This topic describes how cluster managers and users can troubleshoot NSX-T networking errors using the `kubectl nsxerrors` command.
+
+## <a id='nsxerrors-about'></a>About the NSX Errors CRD
+
+The NSX Errors CRD gives you the ability to view errors related to NSX-T that may occur when applications are deployed to a <%= vars.k8s_runtime_abbr %>-provisioned Kubernetes cluster. Previously, NSX-T errors were logged in NCP logs on the control plane nodes, which cluster users do not have access to. The NSX Errors CRD improves visibility and troubleshooting for cluster managers and users.
+
+The NSX Errors CRD creates a `nsxerror` object for each Kubernetes resource that encounters an NSX error during attempted creation. In addition, the Kubernetes resource is annotated with the `nsxerror` object name. The NSX Error CRD provides the command `kubectl nsxerrors` that lets you view the NSX errors encountered during resource creation. The `nsxerror` object is deleted once the NSX error is resolved and the Kubernetes resource is successfully created. 
+
+## <a id='nsxerrors-reported'></a>Errors Reported by the NSX Errors CRD
+
+The following errors are reported by the NSX Errors CRD:
+
+* Auto-scaler failed to allocate additional load balancer service due to Edge Node limit
+* Number of pools exceed the load balancer service limit
+* Number of pool members exceed the load balancer service and Edge Node limit
+* Floating IP pool is exhausted when exposing the load balancer type service
+* Pod IP Block is exhausted
+* The number of available IP allocations is low
+* The NSX manager is unavailable
+* The NSX manager rate limit is exceeded
+
+### <a id='nsxerrors-example'></a>NSX Errors CRD Example
+
+To illustrate how the NSX Errors CRD works and can be used, consider the following example: the NSX auto-scaler fails to allocate additional load balancer services due to Edge Node limits reached. In this case, the number of virtual switches exceed load balancer service limits with auto-scaling enabled.
+
+The resource is fetched by name to check its status.
+
+```
+# kubectl get svc test-svc-3
+test-svc-3     LoadBalancer 10.104.236.243   <pending> 80:32095/TCP,8080:32664/TCP   4
+```
+
+The status is pending so we look at the annotations. The `ncp/error` and `nsxerror` annotations are visible.
+
+```
+# kubectl get svc test-svc-3 –o yaml
+annotations:
+      ncp/error.loadbalancer: SERVICE_LOADBALANCER_UNREALIZED
+      Nsxerror: services-1f48fa28c17d983bc73c33f005611e0c
+```
+
+We use the command `kubectl get nsxerror` to view the details of the error, revealing that the number of load balancer virtual server instances requested exceeds the limits of the Edge Node.
+
+```
+# kubectl get nsxerror services-1f48fa28c17d983bc73c33f005611e0c
+- apiVersion: vmware.eng.com/v1
+  kind: NSXError
+  metadata:
+    clusterName: ""
+    creationTimestamp: 2019-01-22T03:17:16Z
+    labels:
+      error-object-type: services
+    name: services-1f48fa28c17d983bc73c33f005611e0c
+    namespace: ""
+    resourceVersion: "1291084"
+    selfLink: /apis/vmware.eng.com/v1/services-1f48fa28c17d983bc73c33f005611e0c
+    uid: 386e60e5-1df4-11e9-abd8-000c29c02b4c
+  spec:
+    error-object-id: default.test-svc-1
+    error-object-name: test-svc-1
+    error-object-ns: default
+    error-object-type: services
+    message: [2019-01-21 19:17:16]10087: Number of loadbalancer requested exceed Edge node limit’
+```
+

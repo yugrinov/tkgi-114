@@ -1,0 +1,51 @@
+---
+title: Installing and Configuring Ops Manager on Azure
+owner: Ops Manager
+---
+
+This topic describes how to install and configure Ops Manager before deploying <%= vars.product_full %> on Azure.
+
+## <a id='prerequisites'></a>Prerequisites
+
+You use Ops Manager to install and configure <%= vars.product_short %>.
+Before you install Ops Manager, review [Azure Prerequisites and Resource Requirements](azure-requirements.html).
+
+## <a id="install-om"></a>Install and Configure Ops Manager
+
+Each version of <%= vars.product_short %> is compatible with multiple versions of Ops Manager.
+To determine Ops Manager compatibility,
+see [<%= vars.product_network %>](https://network.pivotal.io/products/pivotal-container-service).
+
+To install and configure Ops Manager, follow the instructions in the table below:
+
+<table>
+  <tr>
+    <th>Version</th>
+    <th>Instructions</th>
+  </tr>
+  <tr>
+    <td>Ops Manager v2.9</td>
+    <td>
+      <ol>
+        <li><a href="https://docs.pivotal.io/ops-manager/2-9/azure/prepare-env-manual.html">Preparing to Deploy Ops Manager on Azure Manually</a></li>
+        <li><a href="https://docs.pivotal.io/ops-manager/2-9/azure/deploy-manual.html">Deploying Ops Manager on Azure Manually</a></li>
+        <li><a href="https://docs.pivotal.io/ops-manager/2-9/azure/config-manual.html">Configuring BOSH Director on Azure Manually</a></li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td>Ops Manager v2.10</td>
+    <td>
+      <ol>
+        <li><a href="https://docs.pivotal.io/ops-manager/2-10/azure/prepare-env-manual.html">Preparing to Deploy Ops Manager on Azure Manually</a></li>
+        <li><a href="https://docs.pivotal.io/ops-manager/2-10/azure/deploy-manual.html">Deploying Ops Manager on Azure Manually</a></li>
+        <li><a href="https://docs.pivotal.io/ops-manager/2-10/azure/config-manual.html">Configuring BOSH Director on Azure Manually</a></li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+## <a id="next-steps"></a>Next Installation Step
+
+To create managed identities for <%= vars.product_short %>,
+follow the instructions in [Creating Managed Identities in Azure for <%= vars.product_short %>](azure-managed-identities.html).

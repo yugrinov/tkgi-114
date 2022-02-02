@@ -1,0 +1,358 @@
+---
+title: Upgrade Preparation Checklist for Tanzu Kubernetes Grid Integrated Edition v1.13
+owner: TKGI
+---
+
+This topic serves as a checklist for preparing to upgrade
+<%= vars.product_full %> from v1.12 to v1.13.
+
+##<a id='overview'></a> Overview
+
+This topic describes the steps that you must follow before beginning your <%= vars.k8s_runtime_abbr %> upgrade.
+
+<p class="note warning"><strong>Warning</strong>: Failure to follow these instructions 
+    may jeopardize your existing deployment data and cause the <%= vars.k8s_runtime_abbr %> upgrade to fail.
+</p>
+
+To prepare for a <%= vars.k8s_runtime_abbr %> Upgrade:
+
+1. [Back Up Your <%= vars.k8s_runtime_abbr %> Deployment](#backup)  
+1. [Review What Happens During <%= vars.k8s_runtime_abbr %> Upgrades](#understand-upgrades)  
+1. [Review Changes in <%= vars.k8s_runtime_abbr %>](#review-changes)  
+1. [Determine Upgrade Order (vSphere Only)](#upgrade-order)  
+1. [Set User Expectations and Restrict Cluster Access](#expectations)  
+1. [Update Default Scanner](#update-default-scanner)  
+1. [Upgrade All Clusters](#upgrade-clusters)  
+1. [Verify Your Clusters Support Upgrading](#resource-usage)  
+1. [Verify Health of Kubernetes Environment](#verify-k8s-health)  
+1. [Verify Your Environment Configuration](#review-configurations)  
+1. [Clean Up or Fix Failed Kubernetes Clusters](#clean-up)  
+1. [Verify Kubernetes Clusters Have Unique External Hostnames](#unique-hostname)  
+1. [Verify TKGI Proxy Configuration](#tkgi-proxy)  
+1. [Check PodDisruptionBudget Value](#check-poddisruptionbudget-value)  
+1. [(Optional) Configure Node Drain Behavior]()  
+
+
+After completing the steps in this topic, continue to
+[Upgrading <%= vars.product_short %> (Antrea and Flannel Networking)](upgrade.html) or
+[Upgrading <%= vars.product_short %> (NSX-T Networking)](upgrade-nsxt.html).  
+
+
+##<a id='backup'></a> Back Up Your <%= vars.product_short %> Deployment
+
+<%= vars.recommended_by %> recommends backing up your <%= vars.product_short %>
+deployment and workloads before upgrading.
+To back up <%= vars.product_short %>, see
+[Backing Up and Restoring <%= vars.product_short %>](backup-and-restore.html).
+
+##<a id='understand-upgrades'></a> Review What Happens During <%= vars.product_short %> Upgrades
+
+If you have not already done so, review [About <%= vars.product_short %> Upgrades](understanding-upgrades.html).
+
+Plan your upgrade based on your workload capacity and uptime requirements.
+
+##<a id='review-changes'></a> Review Changes in <%= vars.product_short %> v1.13
+
+Review the [Release Notes](release-notes.html) for <%= vars.product_short %> v1.13.
+
+##<a id='upgrade-order'></a> Determine Upgrade Order (vSphere Only)
+
+To determine the upgrade order for your <%= vars.product_short %> environment,
+review
+[Upgrade Order for <%= vars.product_short %> Environments on vSphere](upgrade-scenarios.html).
+
+##<a id='expectations'></a> Set User Expectations and Restrict Cluster Access
+
+Coordinate the <%= vars.product_short %> upgrade with cluster admins and users.
+During the upgrade:
+
+* Their workloads will remain active and accessible.
+
+* They will be unable to perform cluster management functions,
+including creating, resizing, updating, and deleting clusters.
+
+* They will be unable to log in to <%= vars.k8s_runtime_abbr %> or use the <%= vars.k8s_runtime_abbr %> CLI and other <%= vars.k8s_runtime_abbr %> control plane services.
+
+<p class="note"><strong>Note</strong>: Cluster admins should not start any cluster management tasks right before an upgrade.
+Wait for cluster operations to complete before upgrading.
+</p>
+
+<%#
+##<a id='update-default-scanner'></a> Update Default Scanner
+
+The built-in Clair container image scanner is deprecated in favor of Trivy. If you have enabled
+Clair, do one of the following before upgrading to < %= vars.product_short % > v1.13:
+
+* Install the Harbor tile v2.2.1 and select the Trivy scanner as the default in
+"Interrogation Service". For more information about the Harbor tile, see the
+[VMware Harbor Registry](https://docs.pivotal.io/vmware-harbor/index.html) documentation.
+
+* Install the Clair scanner outside of the Harbor tile VM and configure the Clair scanner as the
+default scanner in "Interrogation Service". For more information, see
+[Getting Started With Clair](https://github.com/quay/clair/blob/main/Documentation/howto/getting_started.md)
+in the Clair documentation.
+#%>
+
+##<a id='upgrade-clusters'></a> Upgrade All Clusters
+
+<%= vars.product_short %> v1.13 does not support clusters
+running versions of <%= vars.k8s_runtime_abbr %> earlier than v1.12.
+
+Before you upgrade from <%= vars.product_short %> v1.12 to v1.13,
+you must upgrade all of your <%= vars.k8s_runtime_abbr %>-provisioned clusters
+to v1.12.
+
+To upgrade <%= vars.k8s_runtime_abbr %>-provisioned clusters:
+
+1. Check the version of your clusters:
+
+    ```
+    tkgi clusters
+    ```
+
+1. If one or more of your clusters are running a version of
+<%= vars.k8s_runtime_abbr %> earlier than v1.12, upgrade the clusters.
+For instructions,
+see [Upgrading Clusters](./upgrade-clusters.html).  
+
+<p class="note"><strong>Note</strong>: When upgrading <%= vars.k8s_runtime_abbr %> to mitigate the Apache Log4j vulnerability
+you must also upgrade all <%= vars.k8s_runtime_abbr %> clusters.
+</p>
+
+##<a id='resource-usage'></a> Verify Your Clusters Support Upgrading
+
+It is critical that you confirm that a cluster's resource usage is within the
+recommended maximum limits before upgrading the cluster.
+
+<%= vars.product_full %> upgrades a cluster by upgrading control plane and worker nodes individually.
+The upgrade processes a control plane node by redistributing the node's workload, stopping the node, upgrading it and restoring its workload.
+This redistribution of a node's workloads increases the resource usage on the remaining nodes during the upgrade process.
+
+If a Kubernetes cluster control plane VM is operating too close to capacity, the upgrade can fail.
+
+<p class="note warning"><strong>Warning</strong>: Downtime is required to repair a cluster failure
+  resulting from upgrading an overloaded Kubernetes cluster control plane VM.
+</p>
+
+To prevent workload downtime during a cluster upgrade, complete the following before upgrading a cluster:
+
+1. Ensure none of the control plane VMs being upgraded will become overloaded during the cluster upgrade.
+See [Control Plane Node VM Size](vm-sizing.html#master-sizing) for more information.
+
+1. Review the cluster's workload resource usage.
+
+1. Scale up the cluster if it is near capacity on its existing infrastructure.
+Scale up your cluster by running the command below or create a new cluster
+using a larger plan. For more information, see [Changing Cluster Configurations](scale-clusters.html).
+
+    ```
+    tkgi update-cluster CLUSTER-NAME --num-nodes NUMBER-OF-WORKER-NODES
+    ```
+    Where:
+    * `CLUSTER-NAME` is the name of your cluster.
+    * `NUMBER-OF-WORKER-NODES` is the number of worker nodes that you want to set for the cluster.
+    <p class="note"><strong>Note</strong>: VMware recommends that you avoid using the
+    <code>tkgi resize</code> command to perform resizing operations.</p>
+
+1. Run the cluster's workloads on at least three
+worker VMs using multiple replicas of your workloads spread across those VMs.
+For more information, see [Maintaining Workload Uptime](maintain-uptime.html).
+
+##<a id='verify-k8s-health'></a> Verify Health of Kubernetes Environment
+
+Verify that your Kubernetes environment is healthy.
+To verify the health of your Kubernetes environment, see [Verifying Deployment Health](verify-health.html).
+
+
+##<a id='review-configurations'></a> Verify Your Environment Configuration
+
+If you are upgrading <%= vars.product_short %>, 
+verify the configuration of your environment supports the <%= vars.k8s_runtime_abbr %> version you are installing:  
+
+* [Verify Your vSphere with NSX-T Configuration](#review-vsphere-nsxt)  
+* [Verify Your Antrea Environment Configuration](#review-non-nsxt)  
+
+If you are using Flannel networking, this verification step is unnecessary.  
+
+###<a id='review-vsphere-nsxt'></a> Verify Your vSphere with NSX-T Configuration
+
+If you are upgrading <%= vars.product_short %> for environments using vSphere with NSX-T, perform the following steps:
+
+1. Verify that the vSphere datastores have enough space.
+1. Verify that the vSphere hosts have enough memory.
+1. Verify that there are no alarms in vSphere.
+1. Verify that the vSphere hosts are in a good state.
+1. Verify that NSX Edge is configured for high availability.
+  <p class="note"><strong>Note</strong>: Workloads in your Kubernetes cluster are unavailable while
+  the NSX Edge nodes run the upgrade unless you configure NSX Edge for high availability. For more
+  information, see the <a href="./nsxt-prepare-env.html#nsx-edge-ha">Configure NSX Edge for High Availability (HA)</a>
+section of <em>Preparing NSX-T Before Deploying <%= vars.product_short %></em>.</p>
+
+###<a id='review-non-nsxt'></a> Verify Your Antrea Environment Configuration
+
+If you are upgrading <%= vars.product_short %> in an environment using Antrea networking, 
+perform the following steps:
+
+1. Verify the 6081 UDP port is open on all worker node VMs.  
+1. Verify the 8091 TCP port is open on all control plane node VMs.  
+1. Verify your environment configuration meets the Antrea networking requirements. 
+For more information, see [Network Requirements](https://github.com/antrea-io/antrea/blob/main/docs/network-requirements.md#network-requirements) 
+in the Antrea GitHub repository.  
+
+<p class="note"><strong>Note</strong>: Port 6081 must be open on all of the worker node VMs and 
+  port 8091 must be open on all control plane node VMs in the clusters you create in an Antrea networking environment.</p>
+
+##<a id='clean-up'></a> Clean Up or Fix Failed Kubernetes Clusters
+
+Clean up or fix any previous failed attempts to create <%= vars.k8s_runtime_abbr %> clusters
+with the <%= vars.k8s_runtime_abbr %> Command Line Interface
+(<%= vars.k8s_runtime_abbr %> CLI) by performing the following steps:
+
+1. View your deployed clusters by running the following command:
+
+    ```
+    tkgi clusters
+    ```
+
+    If the `Status` of any cluster displays as `FAILED`, continue to the next step. If no cluster
+    displays as `FAILED`, no action is required. Continue to the next section.
+
+1. To troubleshoot and fix failed clusters, perform the procedure in [Cluster Creation Fails](troubleshoot-issues.html#cluster-create-fail).
+
+1. To clean up failed BOSH deployments related to failed clusters, perform the procedure in [Cannot Re-Create a Cluster that Failed to Deploy](troubleshoot-issues.html#cluster-recreate-fails).
+
+1. After fixing and cleaning up any failed clusters, view your deployed clusters again by running `tkgi clusters`.
+
+For more information about troubleshooting and fixing failed clusters, see the [Knowledge Base](https://community.pivotal.io/s/topic/0TO0P000000IKdbWAG/pivotal-container-service).
+
+##<a id='unique-hostname'></a> Verify Kubernetes Clusters Have Unique External Hostnames
+
+Verify that existing Kubernetes clusters have unique external hostnames by checking for multiple
+Kubernetes clusters with the same external hostname. Perform the following steps:
+
+1. Log in to the <%= vars.k8s_runtime_abbr %> CLI. For more information, see
+[Logging in to <%= vars.product_short %>](login.html). You must log in with an account that has the
+UAA scope of `pks.clusters.admin`. For more information about UAA scopes, see
+[Managing <%= vars.product_short %> Users with UAA](manage-users.html).
+
+1. View your deployed <%= vars.k8s_runtime_abbr %> clusters by running the following command:
+
+    ```
+    tkgi clusters
+    ```
+1. For each deployed cluster, run `tkgi cluster CLUSTER-NAME` to view the details of the cluster.
+For example:
+
+    <pre class="terminal">
+    $ tkgi cluster my-cluster
+    </pre>
+    Examine the output to verify that the `Kubernetes Master Host` is unique for each cluster.
+
+##<a id='tkgi-proxy'></a> Verify <%= vars.k8s_runtime_abbr %> Proxy Configuration
+
+Verify your current <%= vars.k8s_runtime_abbr %> proxy configuration by performing the following steps:
+
+1. Check whether an existing proxy is enabled:
+    1. Log in to Ops Manager.
+    1. Click the **VMware Tanzu Kubernetes Grid Integrated Edition** tile.
+    1. Click **Networking**.
+    1. If **HTTP/HTTPS Proxy** is **Disabled**, no action is required. Continue to the next section.
+       If **HTTP/HTTPS Proxy** is **Enabled**, continue to the next step.
+
+1. If the existing **No Proxy** field contains any of the following values, or you plan to add any
+of the following values, contact Support:
+	* `localhost`
+	* Hostnames containing dashes, such as `my-host.mydomain.com`
+
+##<a id='check-poddisruptionbudget-value'></a> Check PodDisruptionBudget Value
+
+<%= vars.product_short %> upgrades can run without ever completing if any Kubernetes app has a `PodDisruptionBudget`
+with `maxUnavailable` set to `0`.
+
+To ensure that no apps have a `PodDisruptionBudget` with
+`maxUnavailable` set to `0`:
+
+1. Run the following `kubectl` command to verify the `PodDisruptionBudget` as the cluster administrator:
+
+    ```
+    kubectl get poddisruptionbudgets --all-namespaces
+    ```
+
+1. Examine the output to verify that no app displays `0` in the `MAX UNAVAILABLE` column.
+
+## <a id="configure-node-drain"></a> (Optional) Configure Node Drain Behavior
+
+During the <%= vars.product_tile %> upgrade process, worker nodes are cordoned and drained.
+Workloads can prevent worker nodes from draining and cause the upgrade to fail or hang.
+
+To prevent hanging cluster upgrades, you can configure default node drain behavior using the following methods:  
+
+* [Configure with the <%= vars.k8s_runtime_abbr %> Tile](#node-drain-tile)  
+* [Configure with the <%= vars.k8s_runtime_abbr %> CLI](#node-drain-cli)  
+
+The new default behavior takes effect during the next upgrade,
+not immediately after configuring the behavior.
+
+### <a id="node-drain-tile"></a> Configure with the <%= vars.k8s_runtime_abbr %> Tile
+
+To configure node drain behavior in the <%= vars.product_tile %> tile,
+see <a href="./troubleshoot-issues.html#upgrade-drain-hangs">Worker Node Hangs Indefinitely</a>
+in <i>Troubleshooting</i>.</p>
+
+### <a id="node-drain-cli"></a> Configure with the <%= vars.k8s_runtime_abbr %> CLI
+
+To configure default node drain behavior with the <%= vars.k8s_runtime_abbr %> CLI:
+
+1. View the current node drain behavior by running the following command:
+
+    ```
+    tkgi cluster CLUSTER-NAME --details
+    ```
+
+    Where `CLUSTER-NAME` is the name of your cluster.
+    <br><br>
+    For example:
+    <pre class="terminal">$ tkgi cluster my-cluster --details <br>
+      Name:                     my-cluster
+      Plan Name:                small
+      UUID:                     f55ed6c4-c0a7-451d-b735-56c89fdb2ad7
+      Last Action:              CREATE
+      Last Action State:        succeeded
+      Last Action Description:  Instance provisioning completed
+      Kubernetes Master Host:   my-cluster.tkgi.local
+      Kubernetes Master Port:   8443
+      Worker Nodes:             3
+      Kubernetes Master IP(s):  10.196.219.88
+      Network Profile Name:
+      Kubernetes Settings Details:
+        Set by Cluster:
+        Kubelet Node Drain timeout (mins)            (kubelet-drain-timeout):               10
+        Kubelet Node Drain grace-period (mins)       (kubelet-drain-grace-period):          10
+        Kubelet Node Drain force                     (kubelet-drain-force):                 true
+        Set by Plan:
+        Kubelet Node Drain force-node                (kubelet-drain-force-node):            true
+        Kubelet Node Drain ignore-daemonsets         (kubelet-drain-ignore-daemonsets):     true
+        Kubelet Node Drain delete-local-data         (kubelet-drain-delete-local-data):     true
+      </pre>
+
+1. Configure the default node drain behavior by running the following command:
+
+    ```
+    tkgi update-cluster CLUSTER-NAME FLAG
+    ```
+
+    Where:
+    + `CLUSTER-NAME` is the name of your cluster.
+    + `FLAG` is an action flag for updating the node drain behavior.
+
+    For example:
+    <pre class="terminal">$ tkgi update-cluster my-cluster --kubelet-drain-timeout 1 --kubelet-drain-grace-period 5<br>
+    Update summary for cluster my-cluster:
+    Kubelet Drain Timeout: 1
+    Kubelet Drain Grace Period: 5
+    Are you sure you want to continue? (y/n): y
+    Use 'tkgi cluster my-cluster' to monitor the state of your cluster</pre>
+
+    For a list of the available action flags for setting node drain behavior,
+    see [tkgi update-cluster](cli/index.html#update-cluster) in _<%= vars.k8s_runtime_abbr %> CLI_.
+	</pre>

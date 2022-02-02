@@ -1,0 +1,118 @@
+---
+title: VMware Tanzu Kubernetes Grid Integrated Edition
+owner: TKGI
+---
+
+<%= vars.product_full %> (<%= vars.k8s_runtime_abbr %>) enables operators to provision, operate, and manage enterprise-grade Kubernetes clusters using BOSH and Ops Manager.
+
+## <a id='overview'></a>Overview
+
+<%= vars.product_short %> deploys Kubernetes to [BOSH](https://bosh.io) and [Ops Manager](https://docs.pivotal.io/ops-manager/install/ops-man.html),
+and uses the [On-Demand Broker](https://docs.pivotal.io/svc-sdk/odb/index.html) to dynamically
+instantiate, deploy, and manage highly-available Kubernetes clusters on-premises or on a public cloud.
+
+After operators install <%= vars.k8s_runtime_abbr %>,
+developers can use the <%= vars.k8s_runtime_abbr %> Command Line Interface (<%= vars.k8s_runtime_abbr %> CLI) to provision Kubernetes clusters,
+and run container-based workloads on the clusters with the Kubernetes CLI, [kubectl](installing-kubectl-cli.html).
+
+Operators install <%= vars.k8s_runtime_abbr %> as a tile on the Ops Manager Installation Dashboard,
+or from the <%= vars.k8s_runtime_abbr %> Management Console on vSphere.
+
+You can run <%= vars.k8s_runtime_abbr %> standalone or alongside <%= vars.app_runtime_full %>
+on Ops Manager.
+
+##<a id='tkgi-kubernetes'></a> What <%= vars.product_short %> Adds to Kubernetes
+
+The following table details the features that <%= vars.product_short %> adds to the Kubernetes platform.
+
+<table>
+  <tr>
+    <th>Feature</th>
+    <th>Included in K8s</th>
+    <th>Included in <%= vars.product_short %></th>
+  </tr>
+  <tr>
+    <td>Single tenant ingress</td>
+    <td align="center">&check;</td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Secure multi-tenant ingress</td>
+    <td></td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Stateful sets of pods</td>
+    <td align="center">&check;</td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Multi-container pods</td>
+    <td align="center">&check;</td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Rolling upgrades to pods</td>
+    <td align="center">&check;</td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Rolling upgrades to cluster infrastructure</td>
+    <td></td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Pod scaling and high availability</td>
+    <td align="center">&check;</td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Cluster provisioning and scaling</td>
+    <td></td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Monitoring and recovery of cluster VMs and processes</td>
+    <td></td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Persistent disks</td>
+    <td align="center">&check;</td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Secure container registry</td>
+    <td></td>
+    <td align="center">&check;</td>
+  </tr>
+  <tr>
+    <td>Embedded, hardened operating system</td>
+    <td></td>
+    <td align="center">&check;</td>
+  </tr>
+</table>
+
+## <a id='features'></a>Features
+
+<%= vars.product_short %> has the following features:
+
+* **Kubernetes compatibility**: Constant compatibility with current stable release of Kubernetes
+
+* **Production-ready**: Highly available from applications to infrastructure, with no single points of failure
+
+* **BOSH advantages**: Built-in health checks, scaling, auto-healing and rolling upgrades
+
+* **Fully automated operations**: Fully automated deploy, scale, patch, and upgrade experience
+
+* **Multi-cloud**: Consistent operational experience across multiple clouds
+
+##<a id='prerequisites'></a> <%= vars.product_short %> Prerequisites
+
+For information about the resource requirements for installing <%= vars.product_short %>, see the topic that corresponds to your cloud provider:
+
+* [vSphere Prerequisites and Resource Requirements](vsphere-requirements.html)
+* [vSphere with NSX-T Version Requirements](vsphere-nsxt-requirements.html) and [Hardware Requirements for <%= vars.product_short %> on vSphere with NSX-T](vsphere-nsxt-rpd-mpd.html)
+* [GCP Prerequisites and Resource Requirements](gcp-requirements.html)
+* [AWS Prerequisites and Resource Requirements](aws-requirements.html)
+* [Azure Prerequisites and Resource Requirements](azure-requirements.html)

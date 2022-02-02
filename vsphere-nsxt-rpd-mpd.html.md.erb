@@ -1,0 +1,535 @@
+---
+title: Hardware Requirements for Tanzu Kubernetes Grid Integrated Edition on vSphere with NSX-T
+owner: TKGI with NSX-T
+---
+
+This topic provides hardware requirements for production deployments of <%= vars.product_full %> (<%= vars.k8s_runtime_abbr %>) on vSphere with NSX-T.
+
+##<a id='tkgi-cluster-chars'></a> vSphere Clusters for <%= vars.product_short %>
+
+A vSphere cluster is a collection of ESXi hosts and associated virtual machines (VMs) with shared resources and a shared management interface. Installing <%= vars.product_short %> on vSphere with NSX-T requires the following vSphere clusters: 
+
+- [<%= vars.product_short %> Management Cluster](#tkgi-mgmt-cluster)
+- [<%= vars.product_short %> Edge Cluster](#tkgi-edge-cluster)
+- [<%= vars.product_short %> Compute Cluster](#tkgi-compute-cluster)
+
+For more information on creating vSphere clusters, see <a href="https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.vcenterhost.doc/GUID-F7818000-26E3-4E2A-93D2-FCDCE7114508.html">Creating Clusters</a> in the vSphere documentation.</p>
+
+###<a id='tkgi-mgmt-cluster'></a> <%= vars.product_short %> Management Cluster
+
+The <%= vars.product_short %> Management Cluster on vSphere comprises the following components:
+
+- vCenter Server
+- NSX-T Manager v3.0 or later (quantity 3)
+
+For more information, see [Installing and Configuring NSX-T Data Center v3.0 for <%= vars.k8s_runtime_abbr %>](./nsxt-3-0-install.html).
+
+###<a id='tkgi-edge-cluster'></a> <%= vars.product_short %> Edge Cluster
+
+A <%= vars.k8s_runtime_abbr %> Edge Cluster on vSphere with NSX-T is comprised of two or more NSX-T Edge Nodes. 
+The maximum supported number of Edge Nodes per TKGI Edge Cluster is 10.
+
+For more information, see [Installing and Configuring NSX-T Data Center v3.0 for <%= vars.k8s_runtime_abbr %>](./nsxt-3-0-install.html).
+
+###<a id='tkgi-compute-cluster'></a> <%= vars.product_short %> Compute Cluster
+
+The <%= vars.product_short %> Compute Cluster on vSphere comprises the following components:
+
+- Kubernetes control plane nodes (quantity 3)
+- Kubernetes worker nodes
+
+For more information, see [Installing and Configuring NSX-T Data Center v3.0 for <%= vars.k8s_runtime_abbr %>](./nsxt-3-0-install.html).
+
+###<a id='tkgi-cluster-consids'></a> <%= vars.product_short %> Management Plane Placement Considerations
+
+The <%= vars.product_short %> Management Plane comprises the following components:
+
+- Ops Manager
+- BOSH Director 
+- <%= vars.k8s_runtime_abbr %> Control Plane
+- VMware Harbor Registry
+
+Depending on your design choice, <%= vars.k8s_runtime_abbr %> management components can be deployed in the <%= vars.product_short %> Management Cluster on the standard vSphere network or in the <%= vars.product_short %> Compute Cluster on the NSX-T-defined virtual network. For more information, see <a href="./nsxt-topologies.html">NSX-T Deployment Topologies for <%= vars.product_short %></a>.</p>
+
+###<a id='tkgi-cluster-reqs'></a> Configuration Requirements for vSphere Clusters for <%= vars.product_short %>
+
+For each vSphere cluster defined for <%= vars.product_short %>, the following configurations are required to support production workloads:
+
+- The vSphere Distributed Resource Scheduler (DRS) is enabled. For more information, see <a href="https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.resmgmt.doc/GUID-8ACF3502-5314-469F-8CC9-4A9BD5925BC2.html">Creating a DRS Cluster</a> in the vSphere documentation.</p>
+
+- The DRS custom automation level is set to **Partially Automated** or **Fully Automated**. For more information, see <a href="https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.resmgmt.doc/GUID-C21C0609-923B-46FB-920C-887F00DBCAB9.html">Set a Custom Automation Level for a Virtual Machine</a> in the vSphere documentation.</p> 
+
+- vSphere high-availability (HA) is enabled. For more information, see <a href="https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.avail.doc/GUID-5432CA24-14F1-44E3-87FB-61D937831CF6.html">Creating and Using vSphere HA Clusters</a> in the vSphere documentation.</p>
+
+- vSphere HA Admission Control (AC) is configured to support one ESXi host failure. For more information, see <a href="https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.avail.doc/GUID-C4059DB9-D673-45CB-918C-68C87FEB060A.html">Configure Admission Control</a> in the vSphere documentation.</p> Specifically:
+	- Host failure: Restart VMs
+	- Admission Control: Host failures cluster tolerates = 1
+
+##<a id='tkgi-rpd'></a> RPD for <%= vars.product_short %> on vSphere with NSX-T
+
+The recommended production deployment (RPD) topology represents the VMware-recommended configuration to run production workloads in <%= vars.product_short %> on vSphere with NSX-T.
+
+<p class="note"><strong>Note</strong>: The RPD differs depending on whether you are using vSAN or not.</p>
+
+###<a id='tkgi-rpd-vsan'></a> RPD for <%= vars.product_short %> with vSAN
+
+The RPD for <%= vars.product_short %> with vSAN storage requires 12 ESXi hosts. The diagram below shows the topology for this deployment. 
+
+<img src="images/nsxt/pks-vs-nsxt-rpd-vsan.png" alt="RPD for <%= vars.k8s_runtime_abbr %> with vSAN">
+
+The following subsections describe configuration details for the RPD with vSAN topology.
+
+#### Management/Edge Cluster
+
+The RPD with vSAN topology includes a Management/Edge Cluster with the following characteristics:
+
+- Collapsed Management/Edge Cluster with three ESXi hosts.
+- Each ESXi host runs one NSX-T Manager. The NSX-T Control Plane has three NSX-T Managers total.
+- Two NSX-T Edge Nodes are deployed across two different ESXi hosts.
+
+#### Compute Clusters
+
+The RPD with vSAN topology includes three Compute Clusters with the following characteristics:
+
+- Each Compute cluster has three ESXi hosts and is bound by a distinct availability zone (AZ) defined in BOSH Director.
+	- Compute cluster1 (AZ1) with three ESXi hosts.
+	- Compute cluster2 (AZ2) with three ESXi hosts.
+	- Compute cluster3 (AZ3) with three ESXi hosts.
+- Each Compute cluster runs one instance of an <%= vars.product_short %>-provisioned Kubernetes cluster with three control plane nodes per cluster and a per-plan number of worker nodes.
+
+#### Storage (vSAN)
+
+The RPD with vSAN topology requires the following storage configuration:
+
+- Each Compute Cluster is backed by a vSAN datastore
+- An external shared datastore (using NFS or iSCSI, for instance) must be provided to store Kubernetes Pod PV (Persistent Volumes).
+- Three ESXi hosts are required per Compute cluster because of the vSAN cluster requirements. For data protection, vSAN creates two copies of the data and requires one witness.
+
+For more information on using vSAN with <%= vars.product_short %>, see <a href="./vsphere-persistent-storage.html">PersistentVolume Storage Options on vSphere</a>.
+
+#### Future Growth
+
+The RPD with vSAN topology can be scaled as follows to accommodate future growth requirements:
+
+- The collapsed Management/Edge Cluster can be expanded to include up to 64 ESXi hosts.
+- Each Compute Cluster can be expanded to include up to 64 ESXi hosts.
+
+###<a id='tkgi-rpd-no-vsan'></a> RPD for <%= vars.product_short %> without vSAN
+
+The RPD for <%= vars.product_short %> without vSAN storage requires nine ESXi hosts. The diagram below shows the topology for this deployment. 
+
+<img src="images/nsxt/pks-vs-nsxt-rpd.png" alt="RPD for <%= vars.k8s_runtime_abbr %> without vSAN">
+
+The following subsections describe configuration details for the RPD of <%= vars.product_short %> without vSAN.
+
+#### Management/Edge Cluster
+
+The RPD without vSAN includes a Management/Edge Cluster with the following characteristics:
+
+- Collapsed Management/Edge Cluster with three ESXi hosts.
+- Each ESXi host runs one NSX-T Manager. The NSX-T Control Plane has three NSX-T Managers total.
+- Two NSX-T Edge Nodes are deployed across two different ESXi hosts.
+
+#### Compute Clusters
+
+The RPD without vSAN topology includes three Compute Clusters with the following characteristic:
+
+- Each Compute cluster has two ESXi hosts and is bound by a distinct availability zone (AZ) defined in BOSH Director.
+	- Compute cluster1 (AZ1) with two ESXi hosts.
+	- Compute cluster2 (AZ2) with two ESXi hosts.
+	- Compute cluster3 (AZ3) with two ESXi hosts.
+- Each Compute cluster runs one instance of a <%= vars.product_short %>-provisioned Kubernetes cluster with three control plane nodes per cluster and a per-plan number of worker nodes.
+
+#### Storage (non-vSAN)
+
+The RPD without vSAN topology requires the following storage configuration:
+
+- All Compute Clusters are connected to same shared datastore that is used for persistent VM disks for <%= vars.product_short %> components and Persistent Volumes (PVs) for Kubernetes pods. 
+- All datastores can be collapses to single datastore, if needed.
+
+#### Future Growth 
+
+The RPD without vSAN topology can be scaled as follows to accommodate future growth requirements:
+
+- The collapsed Management/Edge Cluster can be expanded to include up to 64 ESXi hosts.
+- Each Compute Cluster can be expanded to include up to 64 ESXi hosts.
+
+##<a id='tkgi-mpd'></a> MPD for <%= vars.product_short %> on vSphere with NSX-T
+
+The minimum production deployment (MPD) topology represents the baseline requirements for running <%= vars.product_short %> on vSphere with NSX-T.
+
+<p class="note"><strong>Note:</strong> The MPD topology for <%= vars.product_short %> applies to both vSAN and non-vSAN environments.</p>
+
+The diagram below shows the topology for this deployment.
+
+<img src="images/nsxt/pks-vs-nsxt-mpd.png" alt="MPD for <%= vars.k8s_runtime_abbr %>">
+
+The following subsections describe configuration details for an MPD of <%= vars.product_short %>.
+
+###<a id='tkgi-mpd-topology'></a> MPD Topology
+
+The MPD topology for <%= vars.product_short %> requires the following minimum configuration: 
+
+- A single collapsed Management/Edge/Compute cluster running three ESXi hosts in total. 
+- Each ESXi host runs one NSX-T Manager. The NSX-T Control Plane has three NSX-T Managers in total.
+- Each ESXi host runs one Kubernetes control plane node. Each Kubernetes cluster has three control plane nodes in total.
+- Two NSX-T edge nodes are deployed across two different ESXi hosts.
+- The shared datastore (NFS or iSCSI, for instance) or vSAN datastore is used for persistent VM disks for <%= vars.product_short %> components and Persistent Volumes (PVs) for Kubernetes pods.
+- The collapsed Management/Edge/Compute cluster can be expanded to include up to 64 ESXi hosts.
+
+<p class="note"><strong>Note</strong>: For an MPD deployment, each ESXi host must have four physical network interface controllers (PNICs). In addition, while a <%= vars.product_short %> deployment requires a minimum of three nodes, <%= vars.product_short %> upgrades require four ESXi hosts to ensure full survivability of the NSX-T Manager appliance.</p>
+
+###<a id='tkgi-mpd-config'></a> MPD Configuration Requirements
+
+When configuring vSphere for an MPD topology for <%= vars.product_short %>, keep in mind the following requirements:
+
+- When deploying the NSX-T Manager to each ESXi host, create a vSphere distributed resource scheduler (DRS) anti-affinity rule of type "separate virtual machines" for each of the three NSX-T Managers. 
+- When deploying the NSX-T Edge Nodes across two different ESXi hosts, create a DRS anti-affinity rule of type "separate virtual machines" for both Edge Node VMs.
+- After deploying the Kubernetes cluster, you must manually make sure each control plane node is deployed to a different ESXi host by tuning the DRS anti-affinity rule of type "separate virtual machines."
+
+For more information on defining DRS anti-affinity rules, see <a href="https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.vm_admin.doc/GUID-52B2B399-F9AD-472A-9EA2-8A4268BF30D4.html">Virtual Machine Storage DRS Rules</a> in the vSphere documentation.</p>
+
+###<a id='tkgi-mpd-config'></a> MPD Considerations
+
+When planning an MPD topology for <%= vars.product_short %>, keep in mind the following:
+
+- Leverage vSphere resource pools to allocate proper hardware resources for the <%= vars.product_short %> Management Plane components and tune reservation and resource limits accordingly.
+- There is no fault tolerance for the Kubernetes cluster because <%= vars.product_short %> Availability Zones are not fully leveraged with this topology.
+- At a minimum, the <%= vars.product_short %> AZ should be mapped to a vSphere Resource Pool.
+
+For more information, see [Create Management Plane](./nsxt-3-0-install.html#nsxt30-mgmt-plane) and [Create IP Blocks and Pool for Compute Plane](./nsxt-3-0-install.html#nsxt30-ip-blocks-pool) in _Installing and Configuring NSX-T Data Center v3.0 for <%= vars.k8s_runtime_abbr %>_.</p>
+
+##<a id='vm-size-inventory'></a> VM Inventory and Sizes
+
+The following tables list the VMs and their sizes for deployments of <%= vars.product_short %> on vSphere with NSX-T.
+
+###<a id='control-plane-sizes'></a> Management Plane VMs and Sizes
+
+The following table lists the resource requirements for NSX-T infrastructure and <%= vars.product_short %> Management Plane VMs.
+
+<table>
+  <tr>
+    <th>VM</th>
+    <th>CPU Cores</th>
+    <th>Memory (GB)</th>
+    <th>Ephemeral Disk (GB)</th>
+  </tr>
+  <tr>
+    <td>BOSH Director</td>
+    <td>2</td>
+    <td>8</td>
+    <td>103</td>
+  </tr>
+  <tr>
+    <td>Harbor Registry</td>
+    <td>2</td>
+    <td>8</td>
+    <td>167</td>
+  </tr>
+  <tr>
+    <td>Ops Manager</td>
+    <td>1</td>
+    <td>8</td>
+    <td>160</td>
+  </tr>
+  <tr>
+    <td><%= vars.control_plane %></td>
+    <td>2</td>
+    <td>8</td>
+    <td>64</td>
+  </tr>
+  <tr>
+    <td><%= vars.control_plane_db %></td>
+    <td>2</td>
+    <td>8</td>
+    <td>64</td>
+  </tr>
+  <tr>
+    <td>NSX-T Manager 1</td>
+    <td>6</td>
+    <td>24</td>
+    <td>200</td>
+  </tr>
+  <tr>
+    <td>NSX-T Manager 2</td>
+    <td>6</td>
+    <td>24</td>
+    <td>200</td>
+  </tr>
+  <tr>
+    <td>NSX-T Manager 3</td>
+    <td>6</td>
+    <td>24</td>
+    <td>200</td>
+  </tr>
+  <tr>
+    <td>vCenter Appliance</td>
+    <td>4</td>
+    <td>16</td>
+    <td>290</td>
+  </tr>
+  <tr>
+    <td><strong>TOTAL</strong></td>
+    <td><strong>31</strong></td>
+    <td><strong>128</strong></td>
+    <td><strong>1.38&nbsp;TB</strong></td>
+  </tr>
+</table>
+
+<p class="note"><strong>Note</strong>: The NSX-T Manager resource requirements are based on the medium size VM, which is the minimum recommended form factor for NSX-T v3.0 and later. For more information, see <a href="https://docs.vmware.com/en/VMware-NSX-T-Data-Center/3.1/installation/GUID-AECA2EE0-90FC-48C4-8EDB-66517ACFE415.html">NSX Manager VM and Host Transport Node System Requirements</a>.</p> 
+
+<%= partial '_increase_persistent_disk' %>
+
+###<a id='edge-node-sizes'></a> NSX-T Edge Node VMs and Sizes
+
+The following table lists the resource requirements for each VM in the Edge Cluster. 
+
+<table>
+  <tr>
+    <th>VM</th>
+    <th>CPU Cores</th>
+    <th>Memory (GB)</th>
+    <th>Ephemeral Disk (GB)</th>
+  </tr>
+  <tr>
+    <td>NSX-T Edge Node 1</td>
+    <td>8</td>
+    <td>32</td>
+    <td>120</td>
+  </tr>
+  <tr>
+    <td>NSX-T Edge Node 2</td>
+    <td>8</td>
+    <td>32</td>
+    <td>120</td>
+  </tr>
+  <tr>
+    <td><strong>TOTAL</strong></td>
+    <td><strong>16</strong></td>
+    <td><strong>64</strong></td>
+    <td><strong>240</strong></td>
+  </tr>
+</table>
+
+<p class="note"><strong>Note</strong>: NSX-T 3.0 Edge Nodes can be deployed on Intel and AMD-based hosts.</p>
+
+###<a id='k8s-node-sizes'></a> Kubernetes Cluster Nodes VMs and Sizes
+
+The following table lists sizing information for Kubernetes cluster node VMs. The size and resource consumption of these VMs are configurable in the **Plans** section of the <%= vars.product_tile %> tile.
+
+<table>
+  <tr>
+    <th>VM</th>
+    <th>CPU Cores</th>
+    <th>Memory (GB)</th>
+    <th>Ephemeral Disk (GB)</th>
+    <th>Persistent Disk</th>
+  </tr>
+  <tr>
+    <td>Control&nbsb;Plane&nbsp;Nodes</td>
+    <td>1 to 16</td>
+    <td>1 to 64</td>
+    <td>8 to 256</td>
+    <td>1&nbsp;GB to 32&nbsp;TB</td>
+  </tr>
+  <tr>
+    <td>Worker Nodes</td>
+    <td>1 to 16</td>
+    <td>1 to 64</td>
+    <td>8 to 256</td>
+    <td>1&nbsp;GB to 32&nbsp;TB</td>
+  </tr>
+</table>
+
+For illustrative purposes, consider the following example control plane node and a worker node requirements:
+<table>
+  <tr>
+    <th>VM</th>
+    <th>CPU&nbsp;Cores</th>
+    <th>Memory (GB)</th>
+    <th>Ephemeral&nbsp;Disk (GB)</th>
+    <th>Persistent&nbsp;Disk (GB)</th>
+  </tr>
+  <tr>
+    <td>Control&nbsp;Plane&nbsp;Node</td>
+    <td>2</td>
+    <td>8</td>
+    <td>64</td>
+    <td>128</td>
+  </tr>
+  <tr>
+    <td>Worker&nbsp;Node</td>
+    <td>4</td>
+    <td>16</td>
+    <td>64</td>
+    <td>256</td>
+  </tr>
+</table>
+
+The following are the requirements for an example environment consisting of two Kubernetes clusters, 
+each cluster consisting of three of the control plane nodes and five of the worker nodes described above:
+
+<table>
+  <tr>
+    <th>VM</th>
+    <th>CPU&nbsp;Cores</th>
+    <th>Memory (GB)</th>
+    <th>Ephemeral&nbsp;Disk</th>
+    <th>Persistent&nbsp;Disk</th>
+  </tr>
+  <tr>
+    <td>Control&nbsp;Plane&nbsp;Nodes<br>(3 nodes)</td>
+    <td>6</td>
+    <td>24</td>
+    <td>192&nbsp;GB</td>
+    <td>384&nbsp;GB</td>
+  </tr>
+  <tr>
+    <td>Worker&nbsp;Nodes<br>(5 nodes)</td>
+    <td>20</td>
+    <td>80</td>
+    <td>320&nbsp;GB</td>
+    <td>1280&nbsp;GB</td>
+  </tr>
+  <tr>
+    <td><strong>TOTAL<br>(2 clusters)</strong></td>
+    <td><strong>52</strong></td>
+    <td><strong>208</strong></td>
+    <td><strong>1.0&nbsp;TB</strong></td>
+    <td><strong>3.4&nbsp;TB</strong></td>
+  </tr>
+</table>
+
+##<a id='hardware-reqs'></a> Hardware Requirements
+
+The following tables list the hardware requirements for RDP and MPD topologies for <%= vars.product_short %> on vSphere with NSX-T.
+
+###<a id='rpd-hardware'></a> RPD Hardware Requirements
+
+The following table lists the hardware requirements for the RPD with vSAN topology.
+
+<table>
+  <tr>
+    <th>VM</th>
+    <th>VM&nbsp;Count</th>
+    <th>CPU Cores (with&nbsp;HT) </th>
+    <th>Memory (GB)</th>
+    <th>NICS</th>
+    <th>Shared Persistent Disk (TB)</th>
+  </tr>
+  <tr>
+    <td>Management/ Edge&nbsp;Cluster</td>
+    <td>3</td>
+    <td>16</td>
+    <td>98</td>
+    <td>2x 10GbE</td>
+    <td>1.5</td>
+  </tr>
+  <tr>
+    <td>Compute cluster1 (AZ1)</td>
+    <td>3</td>
+    <td>6</td>
+    <td>48</td>
+    <td>2x 10GbE</td>
+    <td>192</td>
+  </tr>
+  <tr>
+    <td>Compute cluster2 (AZ2)</td>
+    <td>3</td>
+    <td>6</td>
+    <td>48</td>
+    <td>2x 10GbE</td>
+    <td>192</td>
+  </tr>
+  <tr>
+    <td>Compute cluster3 (AZ3)</td>
+    <td>3</td>
+    <td>6</td>
+    <td>48</td>
+    <td>2x 10GbE</td>
+    <td>192</td>
+  </tr>
+</table>
+
+<p class="note"><strong>Note</strong>: The <strong>CPU Cores</strong> values assume the use of hyper-threading (HT).</p>
+
+The following table lists the hardware requirements for the RPD without vSAN topology.
+
+<table>
+  <tr>
+    <th>VM</th>
+    <th>VM&nbsp;Count</th>
+    <th>CPU Cores (with&nbsp;HT) </th>
+    <th>Memory (GB)</th>
+    <th>NICS</th>
+    <th>Shared Persistent Disk (TB)</th>
+  </tr>
+  <tr>
+    <td>Management/ Edge&nbsp;Cluster</td>
+    <td>3</td>
+    <td>16</td>
+    <td>98</td>
+    <td>2x 10GbE</td>
+    <td>1.5</td>
+  </tr>
+  <tr>
+    <td>Compute cluster1 (AZ1)</td>
+    <td>2</td>
+    <td>10</td>
+    <td>70</td>
+    <td>2x 10GbE</td>
+    <td>192</td>
+  </tr>
+  <tr>
+    <td>Compute cluster2 (AZ2)</td>
+    <td>2</td>
+    <td>10</td>
+    <td>70</td>
+    <td>2x 10GbE</td>
+    <td>192</td>
+  </tr>
+  <tr>
+    <td>Compute cluster3 (AZ3)</td>
+    <td>2</td>
+    <td>10</td>
+    <td>70</td>
+    <td>2x 10GbE</td>
+    <td>192</td>
+  </tr>
+</table>
+
+<p class="note"><strong>Note</strong>: The <strong>CPU Cores</strong> values assume the use of hyper-threading (HT).</p>
+
+###<a id='mpd-hardware'></a> MPD Hardware Requirements
+
+The following table lists the hardware requirements for the MPD topology with a single (collapsed) cluster for all Management, Edge, and Compute nodes.
+
+<table>
+  <tr>
+    <th>VM</th>
+    <th>VM&nbsp;Count</th>
+    <th>CPU Cores (with&nbsp;HT) </th>
+    <th>Memory (GB)</th>
+    <th>NICS</th>
+    <th>Shared Persistent Disk (TB)</th>
+  </tr>
+  <tr>
+    <td>Collapsed Cluster</td>
+    <td>3</td>
+    <td>32</td>
+    <td>236</td>
+    <td>4x 10GbE or 2x pNICs*</td>
+    <td>5.9</td>
+  </tr>
+</table>
+
+*If necessary, you can use two pNICs. For more information, see <a href="https://docs.vmware.com/en/VMware-NSX-T-Data-Center/3.1/installation/GUID-3770AA1C-DA79-4E95-960A-96DAC376242F.html">Deploy a Fully Collapsed vSphere Cluster NSX-T on Hosts Running N-VDS Switches</a> in the NSX-T Data Center documentation.
+
+###<a id='hardware-capacity'></a> Adding Hardware Capacity
+
+To add hardware capacity to your <%= vars.product_short %> environment on vSphere, do the following:
+
+1. Add one or more ESXi hosts to the vSphere compute cluster. For more information, see the [VMware vSphere documentation](https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.esxi.install.doc/GUID-B64AA6D3-40A1-4E3E-B03C-94AD2E95C9F5.html).
+
+1. Prepare each newly added ESXi host so that it becomes an ESXi transport node for NSX-T. For more information, see [Configure vSphere Networking for ESXi Hosts](./nsxt-3-0-install.html#nsxt30-esxi-vswitch) in _Installing and Configuring NSX-T Data Center v3.0 for <%= vars.k8s_runtime_abbr %>_.
+

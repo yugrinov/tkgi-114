@@ -1,0 +1,24 @@
+---
+title: Installing Tanzu Kubernetes Grid Integrated Edition on vSphere
+owner: TKGI
+iaas: vSphere
+---
+
+This topic describes options for installing <%= vars.product_short %> (<%= vars.k8s_runtime_abbr %>) on vSphere.
+
+## <a id='overview'></a>Overview
+
+You can install <%= vars.k8s_runtime_abbr %> on vSphere in four ways:
+
+- [Install <%= vars.k8s_runtime_abbr %> on vSphere with the Management Console](console-install-vsphere.html)
+- [Install <%= vars.k8s_runtime_abbr %> on vSphere with NSX-T Using Ops Manager](vsphere-nsxt-index.html)
+- [Install <%= vars.k8s_runtime_abbr %> on vSphere with Flannel Using Ops Manager](vsphere-flannel.html)
+- [Install <%= vars.k8s_runtime_abbr %> on VMware Cloud Foundation](vsphere-vcf.html)
+
+Which way you chose to install <%= vars.k8s_runtime_abbr %> depends on whether you use the <%= vars.k8s_runtime_abbr %> Management Console, 
+and which container networking overlay you use.  
+
+Where possible, <%= vars.recommended_by %> recommends using the <%= vars.k8s_runtime_abbr %> Management Console
+to install <%= vars.k8s_runtime_abbr %> on vSphere. 
+For more information, see [Decide When to Use <%= vars.product_abbr %> Management Console](console-install-vsphere.html#decide-when-to-use-console) 
+in _Install <%= vars.product_short %> on vSphere with the Management Console_.  

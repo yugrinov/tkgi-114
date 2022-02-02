@@ -1,0 +1,450 @@
+---
+title: Upgrade Order for Tanzu Kubernetes Grid Integrated Edition Environments on vSphere
+owner: TKGI
+---
+
+<style>
+
+.upgrade-table li {
+    margin: 0 0 .6em;
+}
+
+</style>
+
+
+This topic provides upgrade scenarios for
+<%= vars.product_short %> (<%= vars.k8s_runtime_abbr %>) environments that are upgraded from
+v1.12 to v1.13 on vSphere.
+
+## <a id="overview"></a>Overview
+
+When you upgrade <%= vars.k8s_runtime_abbr %> on vSphere, you might also upgrade
+vSphere and, if you are using it, NSX&#8209;T.
+
+<%= vars.k8s_runtime_abbr %>, NSX&#8209;T, and vSphere upgrades depend on each other.
+Some combinations also require upgrading Ops Manager or
+<%= vars.k8s_runtime_abbr %>-provisioned Kubernetes clusters.
+
+For any combination of upgrades that you perform, you must follow the upgrade
+order described in this topic.
+
+* If your environment is on vSphere with NSX&#8209;T networking,
+see [<%= vars.k8s_runtime_abbr %> on vSphere with NSX&#8209;T Networking](#nsxt) below.
+* If your environment is on vSphere with Antrea or Flannel networking,
+see
+[<%= vars.k8s_runtime_abbr %> on vSphere (Antrea and Flannel Networking)](#flannel)
+below.
+
+## <a id="nsxt"></a><%= vars.k8s_runtime_abbr %> on vSphere with NSX&#8209;T Networking
+
+When upgrading a <%= vars.k8s_runtime_abbr %>
+environment on vSphere with NSX&#8209;T networking, you can choose to upgrade any
+of the following:
+
+* <%= vars.k8s_runtime_abbr %> only, optionally including Kubernetes clusters
+* <%= vars.k8s_runtime_abbr %>, Kubernetes clusters, and NSX&#8209;T
+* <%= vars.k8s_runtime_abbr %>, Kubernetes clusters, NSX&#8209;T, and vSphere
+
+<p class="note"><strong>Note</strong>: When upgrading <%= vars.k8s_runtime_abbr %> to mitigate the Apache Log4j vulnerability
+you must also upgrade all <%= vars.k8s_runtime_abbr %> clusters.
+</p>
+
+For more information, see below:
+
+<table class="nice upgrade-table">
+<col width="20%">
+<col width="40%">
+<col width="40%">
+    <th>To upgrade these components...</th>
+    <th>Use this order...</th>
+    <th>For more information, see...</th>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %></td>
+        <td>
+            <ol>
+              <li>Upgrade Ops Manager if necessary.</li>
+              <li>Upgrade <%= vars.k8s_runtime_abbr %>.</li>
+              <li>(Recommended) Upgrade Kubernetes clusters.</li>
+            </ol>
+        </td>
+        <td><a href="#tkgi-only">Upgrading to <%= vars.k8s_runtime_abbr %> v1.13</a></td>
+    </tr>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %> and NSX&#8209;T</td>
+        <td>
+            <ol>
+              <li>Upgrade NSX&#8209;T.</li>                
+              <li>Upgrade Ops Manager if necessary.</li>
+              <li>Upgrade <%= vars.k8s_runtime_abbr %>.</li>
+              <li>Upgrade Kubernetes clusters.</li>
+            </ol>
+        </td>
+        <td><a href="#tkgi-nsxt">Upgrading to <%= vars.k8s_runtime_abbr %> v1.13 and NSX&#8209;T v3.1</a></td>
+    </tr>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %>, NSX&#8209;T, and vSphere</td>
+        <td>
+            <ol>
+              <li>Upgrade NSX&#8209;T.</li>                
+              <li>Upgrade Ops Manager if necessary.</li>
+              <li>Upgrade <%= vars.k8s_runtime_abbr %>.</li>
+              <li>Upgrade Kubernetes clusters.</li>
+              <li>Upgrade vSphere.</li>
+            </ol>
+        </td>
+        <td><a href="#tkgi-nsxt-vsphere">Upgrading to <%= vars.k8s_runtime_abbr %> v1.13, NSX&#8209;T v3.1, and vSphere v7.0</a></td>
+    </tr>
+</table>
+
+<p class="note warning">
+<strong>Warning:</strong> Refer to the <a href="release-notes.html">Release Notes</a> for current version support, known issues, and other important information.
+</p>
+
+For a list of NSX&#8209;T and vSphere versions compatible with
+<%= vars.product_short %> v1.13, see:
+
+* [Product Snapshot](release-notes.html) in _Release Notes_
+* [VMware Product Interoperability Matrices](https://www.vmware.com/resources/compatibility/sim/interop_matrix.php#interop&356=&175=&1=)
+
+### <a id="tkgi-only"></a>Scenario 1: Upgrading to <%= vars.k8s_runtime_abbr %> v1.13
+
+In this upgrade scenario, you upgrade <%= vars.product_short %>
+from v1.12 to v1.13 and do not upgrade your NSX&#8209;T or vSphere infrastructure.
+
+The upgrade scenario includes the following steps:
+
+1. Upgrade Ops Manager to v2.10.21 or later.
+These are the recommended Ops Manager versions for <%= vars.product_short %> v1.13.0.
+To verify Ops Manager compatibility with other v1.13 versions, see
+[<%= vars.product_network %>](https://network.pivotal.io/products/pivotal-container-service/).
+1. Upgrade <%= vars.product_short %> from v1.12 to v1.13.
+1. (Recommended) Upgrade all Kubernetes clusters to
+<%= vars.product_short %> v1.13.
+This upgrades the NCP version of your clusters.
+
+See the table below for version information and instructions for this
+upgrade scenario:
+
+<table class="nice">
+<col width="15%">
+<col width="20%">
+<col width="20%">
+<col width="45%">
+    <th>Component</th>
+    <th>Pre-upgrade version</th>
+    <th>Post-upgrade version</th>
+    <th>Instructions</th>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %></td>
+        <td><strong>v1.12</strong></td>
+        <td><strong>v1.13</strong></td>
+        <td>See <a href="upgrade-nsxt.html">Upgrading <%= vars.product_short %> (NSX&#8209;T Networking)</a>.</td>
+    </tr>
+    <tr>
+        <td>Ops Manager</td>
+        <td><strong>v2.10.16</strong></td>
+        <td><strong>v2.10.21</strong></td>
+        <td><em>n/a</em></td>
+    </tr>
+</table>
+
+### <a id="tkgi-nsxt"></a>Scenario 2: Upgrading to <%= vars.k8s_runtime_abbr %> v1.13 and NSX&#8209;T v3.1
+
+<p class="note warning">
+<strong>Warning:</strong> Refer to the <a href="release-notes.html">Release Notes</a> for current version support, known issues, and other important information.
+</p>
+
+
+In this upgrade scenario, you upgrade <%= vars.product_short %> from v1.12 to
+v1.13 and NSX&#8209;T from v3.0.0 or later, to v3.1.0 or later.
+
+The upgrade scenario includes the following steps:  
+
+1. Note the current DRS mode setting, then change DRS mode to **Manual**. 
+For more information, 
+see [Pods Stop After Upgrading From NSX-T v3.0.2 to v3.1.0](release-notes.html#1-10-0-nsxt-302-310)
+in the <%= vars.product_short %> _Release Notes_.
+1. Upgrade NSX&#8209;T from v3.0.0 or later to v3.1.0 or later.
+1. If you set DRS mode to **Manual** above, restore DRS to its original setting.
+1. Upgrade Ops Manager to v2.10.21 or later.
+These are the recommended Ops Manager versions
+for <%= vars.product_short %> v1.13.0.
+To verify Ops Manager compatibility with other v1.13 versions, see
+[<%= vars.product_network %>](https://network.pivotal.io/products/pivotal-container-service/).
+1. Upgrade <%= vars.product_short %> from v1.12 to v1.13.  
+1. Upgrade all Kubernetes clusters to
+<%= vars.product_short %> v1.13.
+This upgrades the NCP version of your clusters.
+
+See the table below for version information and instructions for this
+upgrade scenario:
+
+<table class="nice">
+<col width="15%">
+<col width="20%">
+<col width="20%">
+<col width="45%">
+    <th>Component</th>
+    <th>Pre-upgrade version</th>
+    <th>Post-upgrade version</th>
+    <th>Instructions</th>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %></td>
+        <td><strong>v1.12</strong></td>
+        <td><strong>v1.13</strong></td>
+        <td>See <a href="upgrade-nsxt.html">Upgrading <%= vars.product_short %> (NSX&#8209;T Networking)</a>.</td>
+    </tr>
+    <tr>
+        <td>Ops Manager</td>
+        <td><strong>v2.10.16</strong></td>
+        <td><strong>v2.10.21</strong></td>
+        <td><em>n/a</em></td>
+    </tr>
+    <tr>
+        <td>NSX&#8209;T</td>
+        <td><strong>v3.0.0</strong> or later</td>
+        <td><strong>v3.1.0</strong> or later</td>
+        <td>See <a href="upgrade-nsxt.html#upgrade-nsxt">Upgrade NSX&#8209;T Data Center to v3.0 or v3.1</a>
+        in <em>Upgrading <%= vars.product_short %> (NSX&#8209;T Networking)</em>.</td>
+    </tr>
+    <tr>
+        <td>NCP</td>
+        <td><strong>v3.1.2.1</strong></td>
+        <td><strong>v3.2.0.0</strong></td>
+        <td><em>n/a</em></td>
+    </tr>
+</table>
+
+### <a id="tkgi-nsxt-vsphere"></a>Scenario 3: Upgrading to <%= vars.k8s_runtime_abbr %> v1.13, NSX&#8209;T v3.1, and vSphere v7.0
+
+<p class="note warning">
+<strong>Warning:</strong> Refer to the <a href="release-notes.html">Release Notes</a> for current version support, known issues, and other important information.
+</p>
+
+In this upgrade scenario, you upgrade:
+
+* <%= vars.product_short %> from v1.12 to v1.13
+* NSX&#8209;T from v3.0.0 or later to v3.1.0 or later.
+* vSphere from v6.5 or v6.7 to v7.0
+
+The upgrade scenario includes the following steps:  
+
+1. Note the current DRS mode setting, then change DRS mode to **Manual**. 
+For more information, 
+see [Pods Stop After Upgrading From NSX-T v3.0.2 to v3.1.0](release-notes.html#1-10-0-nsxt-302-310)
+in the <%= vars.product_short %> _Release Notes_.
+1. Upgrade NSX&#8209;T from v3.0.0 or later, to v3.1.0 or later.
+1. If you set DRS mode to **Manual** above, restore DRS to its original setting.
+1. Upgrade Ops Manager to v2.10.21 or later.
+These are the recommended Ops Manager versions
+for <%= vars.product_short %> v1.13.0.
+To verify Ops Manager compatibility with other v1.13 versions, see
+[<%= vars.product_network %>](https://network.pivotal.io/products/pivotal-container-service/).
+1. Upgrade <%= vars.product_short %> from v1.12 to v1.13.
+1. Upgrade all Kubernetes clusters to
+<%= vars.product_short %> v1.13.
+This upgrades the NCP version of your clusters.  
+1. Upgrade vSphere from v6.5 or v6.7 to v7.0.
+
+See the table below for version information and instructions for this
+upgrade scenario:
+
+<table class="nice upgrade-table">
+<col width="15%">
+<col width="18%">
+<col width="18%">
+<col width="49%">
+    <th>Component</th>
+    <th>Pre-upgrade version</th>
+    <th>Post-upgrade version</th>
+    <th>Instructions</th>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %></td>
+        <td><strong>v1.12</strong></td>
+        <td><strong>v1.13</strong></td>
+        <td>See <a href="upgrade-nsxt.html">Upgrading <%= vars.product_short %> (NSX&#8209;T Networking)</a>.</td>
+    </tr>
+    <tr>
+        <td>Ops Manager</td>
+        <td><strong>v2.10.16</strong></td>
+        <td><strong>v2.10.21</strong></td>
+        <td><em>n/a</em></td>
+    </tr>
+    <tr>
+        <td>NSX&#8209;T</td>
+        <td><strong>v3.1.0</strong> or later, <strong>v3.0.2</strong> or later, or <strong>v3.0.1</strong> or later</td>
+        <td><strong>v3.1.0</strong> or later</td>
+        <td>See <a href="upgrade-nsxt.html#upgrade-nsxt">Upgrade NSX&#8209;T Data Center to v3.1</a>
+        in <em>Upgrading <%= vars.product_short %> (NSX&#8209;T Networking)</em>.</td>
+    </tr>
+    <tr>
+        <td>NCP</td>
+        <td><strong>v3.1.2.1</strong></td>
+        <td><strong>v3.2.0.0</strong></td>
+        <td><em>n/a</em></td>
+    </tr>
+    <tr>
+        <td>vSphere</td>
+        <td><strong>v6.7</strong> or <strong>v6.5</strong></td>
+        <td><strong>v7.0</strong></td>
+        <td><p>See the vSphere documentation:</p>
+          <ol>
+            <li><a href="https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.vcenter.upgrade.doc/GUID-30485437-B107-42EC-A0A8-A03334CFC825.html">Upgrading the vCenter Server Appliance</a></li>
+            <li><a href="https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.esxi.upgrade.doc/GUID-122035F6-8433-463E-A0F7-B4FC71A05B04.html">Upgrading ESXi Hosts</a></li>
+          </ol>
+
+          Also, see <a href="https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.vcenter.upgrade.doc/GUID-7AFB6672-0B0B-4902-B254-EE6AE81993B2.html">Overview of the vSphere Upgrade Process</a>.</td>
+    </tr>
+</table>
+
+## <a id="flannel"></a><%= vars.k8s_runtime_abbr %> on vSphere (Antrea and Flannel Networking)
+
+When upgrading a <%= vars.product_short %> environment on vSphere with Antrea or Flannel
+networking, you can choose to upgrade any of the following:
+
+* <%= vars.k8s_runtime_abbr %> only, optionally including Kubernetes clusters
+* <%= vars.k8s_runtime_abbr %>, Kubernetes clusters, and vSphere
+
+<p class="note"><strong>Note</strong>: When upgrading <%= vars.k8s_runtime_abbr %> to mitigate the Apache Log4j vulnerability
+you must also upgrade all <%= vars.k8s_runtime_abbr %> clusters.
+</p>
+
+For more information, see below:
+
+<table class="nice upgrade-table">
+<col width="20%">
+<col width="40%">
+<col width="40%">
+    <th>To upgrade these components...</th>
+    <th>Use this order...</th>
+    <th>For more information, see...</th>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %></td>
+        <td>
+            <ol>
+              <li>Upgrade Ops Manager if necessary.</li>
+              <li>Upgrade <%= vars.k8s_runtime_abbr %>.</li>
+              <li>(Recommended) Upgrade Kubernetes clusters.</li>
+            </ol>
+        </td>
+        <td><a href="#tkgi-only-flannel">Upgrading to <%= vars.k8s_runtime_abbr %> v1.13</a></td>
+    </tr>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %> and vSphere</td>
+        <td>
+            <ol>
+              <li>Upgrade Ops Manager if necessary.</li>
+              <li>Upgrade <%= vars.k8s_runtime_abbr %>.</li>
+              <li>Upgrade Kubernetes clusters.</li>
+              <li>Upgrade vSphere.</li>
+            </ol>
+        </td>
+        <td><a href="#tkgi-vsphere">Upgrading to <%= vars.k8s_runtime_abbr %> v1.13 and vSphere v7.0</a></td>
+    </tr>
+</table>
+
+For a list of vSphere versions compatible with
+<%= vars.product_short %> v1.13, see [VMware Product Interoperability Matrices](https://www.vmware.com/resources/compatibility/sim/interop_matrix.php#interop&356=&175=&1=).
+
+### <a id="tkgi-only-flannel"></a>Scenario 1: Upgrading to <%= vars.k8s_runtime_abbr %> v1.13
+
+In this upgrade scenario, you upgrade <%= vars.product_short %>
+from v1.12 to v1.13 and do not upgrade your vSphere infrastructure.
+
+The upgrade scenario includes the following steps:
+
+1. Upgrade Ops Manager to v2.10.21 or later.
+These are the recommended Ops Manager versions for <%= vars.product_short %> v1.13.0.
+To verify Ops Manager compatibility with other v1.13 versions, see
+[<%= vars.product_network %>](https://network.pivotal.io/products/pivotal-container-service/).
+1. Upgrade <%= vars.product_short %> from v1.12 to v1.13.
+1. (Recommended) Upgrade all Kubernetes clusters to
+<%= vars.product_short %> v1.13. 
+This upgrades the NCP version of your clusters.
+
+See the table below for version information and instructions for this
+upgrade scenario:
+
+<table class="nice">
+<col width="15%">
+<col width="20%">
+<col width="20%">
+<col width="45%">
+    <th>Component</th>
+    <th>Pre-upgrade version</th>
+    <th>Post-upgrade version</th>
+    <th>Instructions</th>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %></td>
+        <td><strong>v1.12</strong></td>
+        <td><strong>v1.13</strong></td>
+        <td>See <a href="upgrade.html">Upgrading <%= vars.product_short %> (Antrea and Flannel Networking)</a>.</td>
+    </tr>
+    <tr>
+        <td>Ops Manager</td>
+        <td><strong>v2.10.16</strong></td>
+        <td><strong>v2.10.21</strong></td>
+        <td><em>n/a</em></td>
+    </tr>
+    <tr>
+        <td>vSphere</td>
+        <td><strong>v7.0</strong>, <strong>v6.7</strong> or <strong>v6.5</strong></td>
+        <td><strong>v7.0</strong>, <strong>v6.7</strong> or <strong>v6.5</strong></td>
+        <td><em>n/a</em></td>
+    </tr>
+</table>
+
+### <a id="tkgi-vsphere"></a>Scenario 2: Upgrading to <%= vars.k8s_runtime_abbr %> v1.13 and vSphere v7.0
+
+In this upgrade scenario, you upgrade <%= vars.product_short %> from v1.12 to
+v1.13 and vSphere from v6.5 or v6.7 to v7.0.
+
+The upgrade scenario includes the following steps:
+
+1. Upgrade Ops Manager to v2.10.21 or later.
+These are the recommended Ops Manager versions for <%= vars.product_short %> v1.13.0.
+To verify Ops Manager compatibility with other v1.13 versions, see
+[<%= vars.product_network %>](https://network.pivotal.io/products/pivotal-container-service/).
+1. Upgrade <%= vars.product_short %> from v1.12 to v1.13.
+1. Upgrade all Kubernetes clusters to
+<%= vars.product_short %> v1.13. 
+This upgrades the NCP version of your clusters.
+1. Upgrade vSphere from v6.5 or v6.7 to v7.0.
+
+See the table below for version information and instructions for this
+upgrade scenario:
+
+<table class="nice upgrade-table">
+<col width="15%">
+<col width="18%">
+<col width="18%">
+<col width="49%">
+    <th>Component</th>
+    <th>Pre-upgrade version</th>
+    <th>Post-upgrade version</th>
+    <th>Instructions</th>
+    <tr>
+        <td><%= vars.k8s_runtime_abbr %></td>
+        <td><strong>v1.12</strong></td>
+        <td><strong>v1.13</strong></td>
+        <td>See <a href="upgrade.html">Upgrading <%= vars.product_short %> (Antrea and Flannel Networking)</a>.</td>
+    </tr>
+    <tr>
+        <td>Ops Manager</td>
+        <td><strong>v2.10.16</strong></td>
+        <td><strong>v2.10.21</strong></td>
+        <td><em>n/a</em></td>
+    </tr>
+    <tr>
+        <td>vSphere</td>
+        <td><strong>v6.7</strong> or <strong>v6.5</strong></td>
+        <td><strong>v7.0</strong></td>
+        <td><p>See the vSphere documentation:</p>
+          <ol>
+            <li><a href="https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.vcenter.upgrade.doc/GUID-30485437-B107-42EC-A0A8-A03334CFC825.html">Upgrading the vCenter Server Appliance</a></li>
+            <li><a href="https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.esxi.upgrade.doc/GUID-122035F6-8433-463E-A0F7-B4FC71A05B04.html">Upgrading ESXi Hosts</a></li>
+          </ol>
+
+          Also, see <a href="https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.vcenter.upgrade.doc/GUID-7AFB6672-0B0B-4902-B254-EE6AE81993B2.html">Overview of the vSphere Upgrade Process</a>.</td>
+    </tr>
+</table>
